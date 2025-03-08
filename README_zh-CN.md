@@ -1,7 +1,7 @@
 > [!IMPORTANT]  
 > 本项目文档正在编写中，还不够完善。
 
-![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%E7%89%88%E7%9A%84EPG%E6%9C%8D%E5%8A%A1%EF%BC%8C%E6%9B%B4%E8%BD%BB%E9%87%8F%E3%80%82%20&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Light)
+![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%E7%89%88%E7%9A%84EPG%E6%9C%8D%E5%8A%A1%EF%BC%8C%E6%9B%B4%E8%BD%BB%E9%87%8F%E3%80%82%20&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto)
 
 # 📺 轻量级 PHP 版 EPG 服务
 
@@ -57,5 +57,5 @@ http://localhost:8000/index.php?channel=BBC&date=2024-08-14
 
 本仓库为我自己的修改版，更适合在没有Docker和需要高并发场景下使用。
 
-本项目采用 BSD-3-Clause 许可证。有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
+本项目采用 GPL-2.0 许可证。有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
 

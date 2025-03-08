@@ -1,7 +1,7 @@
 > [!IMPORTANT]  
 > The documentation for this project is still under preparation and is not yet complete.
 
-![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%20version%20of%20the%20EPG%20service%2C%20more%20lightweight.&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Light)
+![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%20version%20of%20the%20EPG%20service%2C%20more%20lightweight.&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto)
 
 # 📺 Lightweight PHP EPG Service
 
@@ -57,5 +57,5 @@ Original work: https://github.com/TakcC/PHP-EPG-Docker-Server
 
 This repository is my own modified version, which is more suitable for use in scenarios without Docker and requiring high concurrency.
 
-This project is licensed under the BSD-3-Clause License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the GPL-2.0 License. See the [LICENSE](LICENSE) file for more details.
 
