@@ -2,32 +2,46 @@
 /**
  * @file manage.php
  * @brief 管理页面部分
- * 
+ *
+ * 管理界面脚本，用于处理会话管理、密码更改、登录验证、配置更新、更新日志展示等功能。
+ *
  * 作者: Tak
- * GitHub: https://github.com/TakcC/PHP-EPG-Docker-Server
- * 
- * 修改: mxdabc
- * Github: https://github.com/mxdabc/epgphp
+ * GitHub: https://github.com/taksssss/EPG-Server
  */
 
-// 引入公共脚本
+// 引入公共脚本，初始化数据库
 require_once 'public.php';
+initialDB();
 
 session_start();
 
-// 设置会话变量，表明用户可以访问 phpliteadmin.php
-$_SESSION['can_access_phpliteadmin'] = true;
+// 首次进入界面，检查 cron.php 是否运行正常
+if ($Config['interval_time'] !== 0) {
+    $output = [];
+    exec("ps aux | grep '[c]ron.php'", $output);
+    if(!$output) {
+        exec('php cron.php > /dev/null 2>/dev/null &');
+    }
+}
 
-// 读取 configUpdated 状态
-$configUpdated = isset($_SESSION['configUpdated']) && $_SESSION['configUpdated'];
-if ($configUpdated) {
-    unset($_SESSION['configUpdated']);
+// 过渡到新的 md5 密码并生成默认 token、user_agent （如果不存在或为空）
+if (!preg_match('/^[a-f0-9]{32}$/i', $Config['manage_password']) || empty($Config['token']) || empty($Config['user_agent'])) {
+    if (!preg_match('/^[a-f0-9]{32}$/i', $Config['manage_password'])) {
+        $Config['manage_password'] = md5($Config['manage_password']);
+    }
+    if (empty($Config['token'])) {
+        $Config['token'] = substr(bin2hex(random_bytes(5)), 0, 10);  // 生成 10 位随机字符串
+    }
+    if (empty($Config['user_agent'])) {
+        $Config['user_agent'] = substr(bin2hex(random_bytes(5)), 0, 10);  // 生成 10 位随机字符串
+    }
+    file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
 // 处理密码更新请求
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
-    $oldPassword = $_POST['old_password'];
-    $newPassword = $_POST['new_password'];
+    $oldPassword = md5($_POST['old_password']);
+    $newPassword = md5($_POST['new_password']);
 
     // 验证原密码是否正确
     if ($oldPassword === $Config['manage_password']) {
@@ -35,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
         $Config['manage_password'] = $newPassword;
 
         // 将新配置写回 config.json
-        file_put_contents('config.json', json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         // 设置密码更改成功的标志变量
         $passwordChanged = true;
@@ -46,12 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
 
 // 检查是否提交登录表单
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
-    $password = $_POST['password'];
+    $password = md5($_POST['password']);
 
     // 验证密码
     if ($password === $Config['manage_password']) {
         // 密码正确，设置会话变量
         $_SESSION['loggedin'] = true;
+
+        // 设置会话变量，表明用户可以访问 phpliteadmin.php 、 tinyfilemanager.php
+        $_SESSION['can_access_phpliteadmin'] = true;
+        $_SESSION['can_access_tinyfilemanager'] = true;
     } else {
         $error = "密码错误";
     }
@@ -64,195 +82,452 @@ $passwordChangeErrorMessage = isset($passwordChangeError) ? "<p style='color:red
 // 检查是否已登录
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     // 显示登录表单
-    ?>
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>登录 - EPG 管理后台</title>
-        <link rel="stylesheet" type="text/css" href="css/login.css">
-    </head>
-    <body>
-        <div class="container">
-            <div class="login-title">EPG 管理后台</div>
-            <h2>请登录</h2>
-            <form method="POST">
-                <label for="password">管理密码:</label><br><br>
-                <input type="password" id="password" name="password"><br><br>
-                <input type="hidden" name="login" value="1">
-                <input type="submit" value="登录">
-            </form>
-            <div class="button-container">
-                <button type="button" onclick="showChangePasswordForm()">更改密码</button>
-            </div>
-            <?php if (!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
-            <?php echo $passwordChangedMessage; ?>
-            <?php echo $passwordChangeErrorMessage; ?>
-        </div>
-        <!-- 底部显示 -->
-        <div class="footer">
-            <a href="https://github.com/mxdabc/epgphp" style="color: #888; text-decoration: none;">Crestekk EPG PHP Version. V1.0</a>
-        </div>
-    
-    <!-- 修改密码模态框 -->
-    <div id="changePasswordModal" class="modal">
-        <div class="passwd-modal-content">
-            <span class="close-password">&times;</span>
-            <h2>更改登录密码</h2>
-            <form method="POST">
-                <div class="form-group">
-                    <label for="old_password">原密码</label>
-                    <input type="password" id="old_password" name="old_password">
-                </div>
-                <div class="form-group">
-                    <label for="new_password">新密码</label>
-                    <input type="password" id="new_password" name="new_password">
-                </div>
-                <input type="hidden" name="change_password" value="1">
-                <input type="submit" value="更改密码">
-            </form>
-        </div>
-    </div>
-    <script>
-        function showChangePasswordForm() {
-            var changePasswordModal = document.getElementById("changePasswordModal");
-            var changePasswordSpan = document.getElementsByClassName("close-password")[0];
-
-            changePasswordModal.style.display = "block";
-
-            changePasswordSpan.onclick = function() {
-                changePasswordModal.style.display = "none";
-            }
-
-            window.onclick = function(event) {
-                if (event.target == changePasswordModal) {
-                    changePasswordModal.style.display = "none";
-                }
-            }
-        }
-    </script>
-    </body>
-    </html>
-    <?php
+    include 'assets/html/login.html';
     exit;
 }
 
-// 检查是否提交配置表单
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update'])) {
+// 更新配置
+function updateConfigFields() {
+    global $Config, $configPath;
 
-    // 获取表单数据并去除每个 URL 末尾的换行符
-    $xml_urls = array_map('trim', explode("\n", trim($_POST['xml_urls'])));
-    $days_to_keep = intval($_POST['days_to_keep']);
-    $gen_xml = isset($_POST['gen_xml']) ? intval($_POST['gen_xml']) : $Config['gen_xml'];
-    $include_future_only = isset($_POST['include_future_only']) ? intval($_POST['include_future_only']) : $Config['include_future_only'];
-    $proc_chname = isset($_POST['proc_chname']) ? intval($_POST['proc_chname']) : $Config['proc_chname'];
-    $ret_default = isset($_POST['ret_default']) ? intval($_POST['ret_default']) : $Config['ret_default'];
-    $start_time = $_POST['start_time'];
-    $end_time = $_POST['end_time'];
+    // 获取和过滤表单数据
+    $config_keys = array_keys(array_filter($_POST, function($key) {
+        return $key !== 'update_config';
+    }, ARRAY_FILTER_USE_KEY));
     
-    // 处理间隔时间
-    $interval_hour = intval($_POST['interval_hour']);
-    $interval_minute = intval($_POST['interval_minute']);
+    foreach ($config_keys as $key) {
+        ${$key} = is_numeric($_POST[$key]) ? intval($_POST[$key]) : $_POST[$key];
+    }
+
+    // 处理 URL 列表和频道别名
+    $xml_urls = array_values(array_map(function($url) {
+        return preg_replace('/^#\s*(\S+)(\s*#.*)?$/', '# $1$2', trim(str_replace(["，", "："], [",", ":"], $url)));
+    }, explode("\n", $xml_urls)));
+    
     $interval_time = $interval_hour * 3600 + $interval_minute * 60;
+    $mysql = ["host" => $mysql_host, "dbname" => $mysql_dbname, "username" => $mysql_username, "password" => $mysql_password];
 
-    // 处理频道替换
-    $channel_replacements = array_map('trim', explode("\n", trim($_POST['channel_replacements'])));
-
-    // 处理频道映射
+    // 解析频道别名
     $channel_mappings = [];
-    $current_search = '';
-    foreach ($_POST['channel_mappings'] as $mapping) {
-        // 如果当前项是 search，则存储为当前搜索模式
-        if (isset($mapping['search'])) {
-            $current_search = trim(str_replace("，", ",", $mapping['search']));
-        }
-        // 如果当前项是 replace，则将其与当前 search 组合，并存入频道映射数组
-        elseif (isset($mapping['replace'])) {
-            $replace = trim($mapping['replace']);
-            if ($current_search !== '' && $replace !== '') {
-                $channel_mappings[$current_search] = $replace;
+    if ($mappings = trim($_POST['channel_mappings'] ?? '')) {
+        foreach (explode("\n", $mappings) as $line) {
+            if ($line = trim($line)) {
+                list($search, $replace) = preg_split('/=》|=>/', $line);
+                $channel_mappings[trim($search)] = trim(str_replace("，", ",", trim($replace)), '[]');
             }
-            // 重置 current_search 以准备处理下一对 search-replace
-            $current_search = '';
         }
     }
 
-    // 获取旧的配置
-    $oldConfig = $Config;
+    // 解析频道 EPG 数据
+    $channel_bind_epg = isset($_POST['channel_bind_epg']) ? array_filter(array_reduce(json_decode($_POST['channel_bind_epg'], true), function($result, $item) {
+        $epgSrc = preg_replace('/^【已停用】/', '', $item['epg_src']);
+        if (!empty($item['channels'])) $result[$epgSrc] = trim(str_replace("，", ",", trim($item['channels'])), '[]');
+        return $result;
+    }, [])) : $Config['channel_bind_epg'];
 
-    // 更新配置
-    $newConfig = [
-        'xml_urls' => $xml_urls,
-        'days_to_keep' => $days_to_keep,
-        'gen_xml' => $gen_xml,
-        'include_future_only' => $include_future_only,
-        'proc_chname' => $proc_chname,
-        'ret_default' => $ret_default,
-        'start_time' => $start_time,
-        'end_time' => $end_time,
-        'interval_time' => $interval_time,
-        'manage_password' => $Config['manage_password'], // 保留密码
-        'channel_replacements' => $channel_replacements,
-        'channel_mappings' => $channel_mappings
-    ];
+    // 更新 $Config
+    $oldConfig = $Config;
+    $config_keys_filtered = array_filter($config_keys, function($key) {
+        return !preg_match('/^(mysql_|interval_)/', $key);
+    });
+    $config_keys_new = ['channel_bind_epg', 'interval_time', 'mysql'];
+    $config_keys_save = array_merge($config_keys_filtered, $config_keys_new);
+
+    foreach ($config_keys_save as $key) {
+        if (isset($$key)) {
+            $Config[$key] = $$key;
+        }
+    }
+
+    // 检查 MySQL 有效性
+    $db_type_set = true;
+    if ($Config['db_type'] === 'mysql') {
+        try {
+            $dsn = "mysql:host={$Config['mysql']['host']};dbname={$Config['mysql']['dbname']};charset=utf8mb4";
+            $db = new PDO($dsn, $Config['mysql']['username'] ?? null, $Config['mysql']['password'] ?? null);
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch (PDOException $e) {
+            $Config['db_type'] = 'sqlite';
+            $db_type_set = false;
+        }
+    }
 
     // 将新配置写回 config.json
-    file_put_contents('config.json', json_encode($newConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-    // 设置标志变量以显示弹窗
-    $_SESSION['configUpdated'] = true;
-
-    // 重新加载配置以确保页面显示更新的数据
-    $Config = json_decode(file_get_contents('config.json'), true);
+    file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     // 重新启动 cron.php ，设置新的定时任务
     if ($oldConfig['start_time'] !== $start_time || $oldConfig['end_time'] !== $end_time || $oldConfig['interval_time'] !== $interval_time) {
         exec('php cron.php > /dev/null 2>/dev/null &');
     }
-    header('Location: manage.php');
-    exit;
-} else {
-    // 首次进入界面，检查 cron.php 是否运行正常
-    if($Config['interval_time']!=0) {
-        $output = [];
-        exec("ps aux | grep '[c]ron.php'", $output);
-        if(!$output) {
-            exec('php cron.php > /dev/null 2>/dev/null &');
-        }
-    }
+
+    return ['db_type_set' => $db_type_set];
 }
 
-// 连接数据库并获取日志表中的数据
-$logData = [];
-$cronLogData = [];
-$channels = [];
-
+// 处理服务器请求
 try {
     $requestMethod = $_SERVER['REQUEST_METHOD'];
     $dbResponse = null;
 
     if ($requestMethod == 'GET') {
-        // 返回更新日志数据
-        if (isset($_GET['get_update_logs'])) {
-            $dbResponse = $db->query("SELECT * FROM update_log")->fetchAll(PDO::FETCH_ASSOC);
-        }
 
-        // 返回定时任务日志数据
-        elseif (isset($_GET['get_cron_logs'])) {
-            $dbResponse = $db->query("SELECT * FROM cron_log")->fetchAll(PDO::FETCH_ASSOC);
-        }
+        // 确定操作类型
+        $action_map = [
+            'get_update_logs', 'get_cron_logs', 'get_channel', 'get_epg_by_channel',
+            'get_icon', 'get_channel_bind_epg', 'get_channel_match', 'get_gen_list',
+            'get_live_data', 'parse_source_info', 'toggle_status', 
+            'download_data', 'delete_unused_icons', 'delete_unused_live_data',
+            'get_version_log'
+        ];
+        $action = key(array_intersect_key($_GET, array_flip($action_map))) ?: '';
 
-        // 返回所有频道数据和频道数量
-        elseif (isset($_GET['get_channel'])) {
-            $channels = $db->query("SELECT DISTINCT channel FROM epg_data ORDER BY channel ASC")->fetchAll(PDO::FETCH_COLUMN);
-            $dbResponse = [
-                'channels' => $channels,
-                'count' => count($channels)
-            ];
-        }
+        // 根据操作类型执行不同的逻辑
+        switch ($action) {
+            case 'get_update_logs':
+                // 获取更新日志
+                $dbResponse = $db->query("SELECT * FROM update_log")->fetchAll(PDO::FETCH_ASSOC);
+                break;
 
-        // 返回待保存频道列表数据
-        elseif (isset($_GET['get_gen_list'])) {
-            $dbResponse = $db->query("SELECT channel FROM gen_list")->fetchAll(PDO::FETCH_COLUMN);
+            case 'get_cron_logs':
+                // 获取 cron 日志
+                $dbResponse = $db->query("SELECT * FROM cron_log")->fetchAll(PDO::FETCH_ASSOC);
+                break;
+
+            case 'get_channel':
+                // 获取频道
+                $channels = $db->query("SELECT DISTINCT channel FROM epg_data ORDER BY channel ASC")->fetchAll(PDO::FETCH_COLUMN);
+                $channelMappings = $Config['channel_mappings'];
+                $mappedChannels = [];
+                foreach ($channelMappings as $mapped => $original) {
+                    if (($index = array_search(strtoupper($mapped), $channels)) !== false) {
+                        $mappedChannels[] = [
+                            'original' => $mapped,
+                            'mapped' => $original
+                        ];
+                        unset($channels[$index]); // 从剩余频道中移除
+                    }
+                }
+                foreach ($channels as $channel) {
+                    $mappedChannels[] = [
+                        'original' => $channel,
+                        'mapped' => ''
+                    ];
+                }
+                $dbResponse = [
+                    'channels' => $mappedChannels,
+                    'count' => count($mappedChannels)
+                ];
+                break;
+
+            case 'get_epg_by_channel':
+                // 查询
+                $channel = $_GET['channel'];
+                $date = urldecode($_GET['date']);
+                $stmt = $db->prepare("SELECT epg_diyp FROM epg_data WHERE channel = :channel AND date = :date");
+                $stmt->execute([':channel' => $channel, ':date' => $date]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC); // 获取单条结果
+                if ($result) {
+                    $epgData = json_decode($result['epg_diyp'], true);
+                    $epgSource = $epgData['source'] ?? '';
+                    $epgOutput = "";
+                    foreach ($epgData['epg_data'] as $epgItem) {
+                        $epgOutput .= "{$epgItem['start']} {$epgItem['title']}\n";
+                    }            
+                    $dbResponse = ['channel' => $channel, 'source' => $epgSource, 'date' => $date, 'epg' => trim($epgOutput)];
+                } else {
+                    $dbResponse = ['channel' => $channel, 'source' => '', 'date' => $date, 'epg' => '无节目信息'];
+                }
+                break;
+
+            case 'get_icon':
+                // 是否显示无节目单的内置台标
+                if(isset($_GET['get_all_icon'])) {
+                    $iconList = $iconListMerged;
+                }
+                
+                // 获取并合并数据库中的频道和 $iconList 中的频道，去重后按字母排序
+                $allChannels = array_unique(array_merge(
+                    $db->query("SELECT DISTINCT channel FROM epg_data ORDER BY channel ASC")->fetchAll(PDO::FETCH_COLUMN),
+                    array_keys($iconList)
+                ));
+                sort($allChannels);
+
+                // 将默认台标插入到频道列表的开头
+                $defaultIcon = [
+                    ['channel' => '【默认台标】', 'icon' => $Config['default_icon'] ?? '']
+                ];
+
+                $channelsInfo = array_map(function($channel) use ($iconList) {
+                    return ['channel' => $channel, 'icon' => $iconList[$channel] ?? ''];
+                }, $allChannels);
+                $withIcons = array_filter($channelsInfo, function($c) { return !empty($c['icon']);});
+                $withoutIcons = array_filter($channelsInfo, function($c) { return empty($c['icon']);});
+
+                $dbResponse = [
+                    'channels' => array_merge($defaultIcon, $withIcons, $withoutIcons),
+                    'count' => count($allChannels)
+                ];
+                break;
+
+            case 'get_channel_bind_epg':
+                // 获取频道绑定的 EPG
+                $channels = $db->query("SELECT DISTINCT channel FROM epg_data ORDER BY channel ASC")->fetchAll(PDO::FETCH_COLUMN);
+                $channelBindEpg = $Config['channel_bind_epg'] ?? [];
+                $xmlUrls = $Config['xml_urls'];
+                $dbResponse = array_map(function($epgSrc) use ($channelBindEpg) {
+                    $cleanEpgSrc = trim(explode('#', strpos($epgSrc, '=>') !== false ? explode('=>', $epgSrc)[1] : ltrim($epgSrc, '# '))[0]);
+                    $isInactive = strpos(trim($epgSrc), '#') === 0;
+                    return [
+                        'epg_src' => ($isInactive ? '【已停用】' : '') . $cleanEpgSrc,
+                        'channels' => $channelBindEpg[$cleanEpgSrc] ?? ''
+                    ];
+                }, array_filter($xmlUrls, function($epgSrc) {
+                    // 去除空行和包含 tvmao、cntv 的行
+                    return !empty(ltrim($epgSrc, '# ')) && strpos($epgSrc, 'tvmao') === false && strpos($epgSrc, 'cntv') === false;
+                }));
+                $dbResponse = array_merge(
+                    array_filter($dbResponse, function($item) { return strpos($item['epg_src'], '【已停用】') === false; }),
+                    array_filter($dbResponse, function($item) { return strpos($item['epg_src'], '【已停用】') !== false; })
+                );
+                break;
+
+            case 'get_channel_match':
+                // 获取频道匹配
+                $channels = $db->query("SELECT channel FROM gen_list")->fetchAll(PDO::FETCH_COLUMN);
+                if (empty($channels)) {
+                    echo json_encode(['ori_channels' => [], 'clean_channels' => [], 'match' => [], 'type' => []]);
+                    exit;
+                }
+                $cleanChannels = explode("\n", t2s(implode("\n", array_map('cleanChannelName', $channels))));
+                $epgData = $db->query("SELECT channel FROM epg_data")->fetchAll(PDO::FETCH_COLUMN);
+                $channelMap = array_combine($cleanChannels, $channels);
+                $matches = [];
+                foreach ($cleanChannels as $cleanChannel) {
+                    $originalChannel = $channelMap[$cleanChannel];
+                    $matchResult = null;
+                    $matchType = '未匹配';
+                    if (in_array($cleanChannel, $epgData)) {
+                        $matchResult = $cleanChannel;
+                        $matchType = '精确匹配';
+                        if ($cleanChannel !== $originalChannel) {
+                            $matchType = '别名/忽略';
+                        }
+                    } else {
+                        foreach ($epgData as $epgChannel) {
+                            if (stripos($epgChannel, $cleanChannel) !== false) {
+                                if (!isset($matchResult) || strlen($epgChannel) < strlen($matchResult)) {
+                                    $matchResult = $epgChannel;
+                                    $matchType = '正向模糊';
+                                }
+                            } elseif (stripos($cleanChannel, $epgChannel) !== false) {
+                                if (!isset($matchResult) || strlen($epgChannel) > strlen($matchResult)) {
+                                    $matchResult = $epgChannel;
+                                    $matchType = '反向模糊';
+                                }
+                            }
+                        }
+                    }
+                    $matches[$cleanChannel] = [
+                        'ori_channel' => $originalChannel,
+                        'clean_channel' => $cleanChannel,
+                        'match' => $matchResult,
+                        'type' => $matchType
+                    ];
+                }
+                $dbResponse = $matches;
+                break;
+
+            case 'get_gen_list':
+                // 获取生成列表
+                $dbResponse = $db->query("SELECT channel FROM gen_list")->fetchAll(PDO::FETCH_COLUMN);
+                break;
+            
+            case 'get_live_data':
+                // 读取 source.txt 文件内容
+                $sourceFilePath = $liveDir . 'source.txt';
+                $sourceContent = file_exists($sourceFilePath) ? file_get_contents($sourceFilePath) : '';
+
+                // 读取 template.txt 文件内容
+                $templateFilePath = $liveDir . 'template.txt';
+                $templateContent = file_exists($templateFilePath) ? file_get_contents($templateFilePath) : '';
+
+                // 读取 channels.csv 文件内容
+                $channelsFilePath = $liveDir . 'channels.csv';
+                $channelsData = [];
+                if (file_exists($channelsFilePath)) {
+                    $channelsFile = fopen($channelsFilePath, 'r');
+                    $header = fgetcsv($channelsFile); // 读取表头
+                    while (($row = fgetcsv($channelsFile)) !== false) {
+                        if (empty(array_filter($row))) continue; // 跳过空行
+                        if (count($row) !== count($header)) break; // 如果字段数量不一致，跳出循环
+                        $channelsData[] = array_combine($header, $row); // 动态关联表头与行数据
+                    }
+                    fclose($channelsFile);
+                }
+                
+                $dbResponse = ['source_content' => $sourceContent, 'template_content' => $templateContent, 'channels' => $channelsData,];
+                break;
+
+            case 'parse_source_info':
+                // 解析直播源
+                $parseResult = doParseSourceInfo();
+                if ($parseResult !== true) {
+                    $dbResponse = ['success' => 'part', 'message' => $parseResult];
+                } else {
+                    $dbResponse = ['success' => 'full'];
+                }
+                break;
+
+            case 'toggle_status':
+                // 切换状态
+                $toggleField = $_GET['toggle_button'] === 'toggleLiveSourceSyncBtn' ? 'live_source_auto_sync'
+                            : ($_GET['toggle_button'] === 'toggleLiveChannelNameProcessBtn' ? 'live_channel_name_process' : '');
+                $currentStatus = isset($Config[$toggleField]) && $Config[$toggleField] == 1 ? 1 : 0;
+                $newStatus = ($currentStatus == 1) ? 0 : 1;
+                $Config[$toggleField] = $newStatus;
+                file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                
+                $dbResponse = ['status' => $newStatus];
+                break;
+
+            case 'download_data':
+                // 下载数据
+                $url = filter_var(($_GET['url']), FILTER_VALIDATE_URL);
+                if ($url) {
+                    $data = downloadData($url, '', 5);
+                    if ($data !== false) {
+                        $dbResponse = ['success' => true, 'data' => $data];
+                    } else {
+                        $dbResponse = ['success' => false, 'message' => '无法获取URL内容'];
+                    }
+                } else {
+                    $dbResponse = ['success' => false, 'message' => '无效的URL'];
+                }
+                break;
+
+            case 'delete_unused_icons':
+                // 清理未在使用的台标
+                $iconUrls = array_merge(
+                    array_map(function($url) { return parse_url($url, PHP_URL_PATH); }, $iconList),
+                    [parse_url($Config["default_icon"], PHP_URL_PATH)]
+                );
+                $iconPath = __DIR__ . '/data/icon';
+                $deletedCount = 0;
+                foreach (scandir($iconPath) as $file) {
+                    if ($file === '.' || $file === '..') continue;
+                    $iconRltPath = '/data/icon/' . $file;
+                    if (!in_array($iconRltPath, $iconUrls)) {
+                        if (@unlink($iconPath . '/' . $file)) {
+                            $deletedCount++;
+                        }
+                    }
+                }
+                $dbResponse = ['success' => true, 'message' => "共清理了 $deletedCount 个台标"];
+                break;
+
+            case 'delete_unused_live_data':
+                // 清理未在使用的直播源缓存、未出现在频道列表中的修改记录
+                $sourceFilePath = $liveDir . 'source.txt';
+                $sourceContent = file_exists($sourceFilePath) ? file_get_contents($sourceFilePath) : '';
+                $urls = array_map('trim', explode("\n", $sourceContent));
+
+                // 遍历 live/file 目录，删除未使用的文件
+                $parentRltPath = '/' . basename(__DIR__) . '/data/live/file/'; // 相对路径
+                $deletedFileCount = 0;
+                foreach (scandir($liveFileDir) as $file) {
+                    if ($file === '.' || $file === '..') continue;
+                    $fileRltPath = $parentRltPath . $file;
+                    if (!array_filter($urls, function($url) use ($fileRltPath) {
+                        $url = trim(explode('#', ltrim($url, '# '))[0]); // 处理注释
+                        $urlmd5 = md5(urlencode($url)); // 计算 md5
+                        return $url && (stripos($fileRltPath, $url) !== false || stripos($fileRltPath, $urlmd5) !== false);
+                    })) {
+                        if (@unlink($liveFileDir . $file)) { // 如果没有匹配的 URL，删除文件
+                            $deletedFileCount++;
+                        }
+                    }
+                }
+
+                // 删除 modifications.csv 未在 channels.csv 中出现的条目
+                $channelsFilePath = $liveDir . 'channels.csv';
+                $modificationsFilePath = $liveDir . 'modifications.csv';
+                
+                $deletedRecordCount = 0;
+                if (file_exists($channelsFilePath) && file_exists($modificationsFilePath)) {
+                    // 读取 channels.csv 中的 tag 字段
+                    $channelTags = [];
+                    $file = fopen($channelsFilePath, 'r');
+                    $header = fgetcsv($file);
+                    while (($row = fgetcsv($file)) !== false) {
+                        $channelTags[] = $row[array_search('tag', $header)];
+                    }
+                    fclose($file);
+                
+                    // 过滤 modifications.csv 数据并统计移除行数
+                    $file = fopen($modificationsFilePath, 'r');
+                    $modificationsHeader = fgetcsv($file);
+                    $filteredData = [];
+                    while (($row = fgetcsv($file)) !== false) {
+                        if (in_array($row[array_search('tag', $modificationsHeader)], $channelTags)) {
+                            $filteredData[] = $row;
+                        } else {
+                            $deletedRecordCount++;
+                        }
+                    }
+                    fclose($file);
+                
+                    // 写回过滤后的数据
+                    $file = fopen($modificationsFilePath, 'w');
+                    fputcsv($file, $modificationsHeader);
+                    foreach ($filteredData as $row) {
+                        fputcsv($file, $row);
+                    }
+                    fclose($file);
+                }
+                
+                $dbResponse = ['success' => true, 'message' => "共清理了 $deletedFileCount 个缓存文件， $deletedRecordCount 条修改记录。"];
+                break;
+
+            case 'get_version_log':
+                // 获取更新日志
+                $checkUpdateEnable = !isset($Config['check_update']) || $Config['check_update'] == 1;
+                $checkUpdate = isset($_GET['do_check_update']) && $_GET['do_check_update'] === 'true';
+                if (!$checkUpdateEnable && $checkUpdate) {
+                    echo json_encode(['success' => true, 'is_updated' => false]);
+                    return;
+                }
+
+                $localFile = 'assets/CHANGELOG.md';
+                $url = 'https://gitee.com/taksssss/EPG-Server/raw/main/CHANGELOG.md';
+                $isUpdated = false;
+                $updateMessage = '';
+                if ($checkUpdate) {
+                    $remoteContent = @file_get_contents($url);
+                    if ($remoteContent === false) {
+                        echo json_encode(['success' => false, 'message' => '无法获取远程版本日志']);
+                        return;
+                    }
+                    $localContent = file_exists($localFile) ? file_get_contents($localFile) : '';
+                    if (strtok($localContent, "\n") !== strtok($remoteContent, "\n")) {
+                        file_put_contents($localFile, $remoteContent);
+                        $isUpdated = !empty($localContent) ? true : false;
+                        $updateMessage = '<h3 style="color: red;">🔔 检测到新版本，请自行更新。（该提醒仅显示一次）</h3>';
+                    }
+                }
+
+                $markdownContent = file_exists($localFile) ? file_get_contents($localFile) : false;
+                if ($markdownContent === false) {
+                    echo json_encode(['success' => false, 'message' => '无法读取版本日志']);
+                    return;
+                }
+
+                require_once 'assets/Parsedown.php';
+                $htmlContent = (new Parsedown())->text($markdownContent);
+                $dbResponse = ['success' => true, 'content' => $updateMessage . $htmlContent, 'is_updated' => $isUpdated];
+                break;
+
+            default:
+                $dbResponse = null;
+                break;
         }
 
         if ($dbResponse !== null) {
@@ -262,643 +537,223 @@ try {
         }
     }
 
-    // 将频道数据写入数据库
-    elseif ($requestMethod === 'POST' && isset($_GET['set_gen_list'])) {
-        $data = json_decode(file_get_contents("php://input"), true)['data'] ?? '';
-        try {
-            // 启动事务
-            $db->beginTransaction();
-            // 清空表中的数据
-            $db->exec("DELETE FROM gen_list");
-            // 插入新数据
-            $lines = array_filter(array_map('trim', explode("\n", $data)));
-            $stmt = $db->prepare("INSERT INTO gen_list (channel) VALUES (:channel)");
-            foreach ($lines as $line) {
-                $stmt->bindValue(':channel', $line, PDO::PARAM_STR);
-                $stmt->execute(); // 执行插入操作
-            }
-            // 提交事务
-            $db->commit();
-            echo 'success';
-        } catch (PDOException $e) {
-            // 回滚事务
-            $db->rollBack();
-            echo "数据库操作失败，原因如下: " . $e->getMessage();
+    // 处理 POST 请求
+    if ($requestMethod === 'POST') {
+        // 定义操作类型和对应的条件
+        $actions = [
+            'update_config' => isset($_POST['update_config']),
+            'set_gen_list' => isset($_GET['set_gen_list']),
+            'import_config' => isset($_POST['importExport']) && !empty($_FILES['importFile']['tmp_name']),
+            'export_config' => isset($_POST['importExport']) && empty($_FILES['importFile']['tmp_name']),
+            'upload_icon' => isset($_FILES['iconFile']),
+            'update_icon_list' => isset($_POST['update_icon_list']),
+            'upload_source_file' => isset($_FILES['liveSourceFile']),
+            'save_content_to_file' => isset($_POST['save_content_to_file']),
+            'save_source_info' => isset($_POST['save_source_info']),
+            'update_config_field' => isset($_POST['update_config_field']),
+        ];
+
+        // 确定操作类型
+        $action = '';
+        foreach ($actions as $key => $condition) {
+            if ($condition) { $action = $key; break; }
         }
-        exit;
+
+        switch ($action) {
+            case 'update_config':
+                // 更新配置
+                ['db_type_set' => $db_type_set] = updateConfigFields();
+                echo json_encode([
+                    'db_type_set' => $db_type_set,
+                    'interval_time' => $Config['interval_time'],
+                    'start_time' => $Config['start_time'],
+                    'end_time' => $Config['end_time']
+                ]);
+                exit;
+
+            case 'set_gen_list':
+                // 设置生成列表
+                $data = json_decode(file_get_contents("php://input"), true)['data'] ?? '';
+                try {
+                    $db->beginTransaction();
+                    $db->exec("DELETE FROM gen_list");
+                    $lines = array_filter(array_map('trim', explode("\n", $data)));
+                    foreach ($lines as $line) {
+                        $stmt = $db->prepare("INSERT INTO gen_list (channel) VALUES (:channel)");
+                        $stmt->bindValue(':channel', $line, PDO::PARAM_STR);
+                        $stmt->execute();
+                    }
+                    $db->commit();
+                    echo 'success';
+                } catch (PDOException $e) {
+                    $db->rollBack();
+                    echo "数据库操作失败: " . $e->getMessage();
+                }
+                exit;
+
+            case 'import_config':
+                // 导入配置
+                $zip = new ZipArchive();
+                $importFile = $_FILES['importFile']['tmp_name'];
+                $successFlag = false;
+                $message = "";
+                if ($zip->open($importFile) === TRUE) {
+                    if ($zip->extractTo('.')) {
+                        $successFlag = true;
+                        $message = "导入成功！<br>3秒后自动刷新页面……";
+                    } else {
+                        $message = "导入失败！解压过程中发生问题。";
+                    }
+                    $zip->close();
+                } else {
+                    $message = "导入失败！无法打开压缩文件。";
+                }
+                echo json_encode(['success' => $successFlag, 'message' => $message]);
+                exit;
+
+            case 'export_config':
+                $zip = new ZipArchive();
+                $zipFileName = 't.gz';
+                if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+                    $dataDir = __DIR__ . '/data';
+                    $files = new RecursiveIteratorIterator(
+                        new RecursiveDirectoryIterator($dataDir),
+                        RecursiveIteratorIterator::LEAVES_ONLY
+                    );
+                    foreach ($files as $file) {
+                        if (!$file->isDir()) {
+                            $filePath = $file->getRealPath();
+                            $relativePath = 'data/' . substr($filePath, strlen($dataDir) + 1);
+                            $zip->addFile($filePath, $relativePath);
+                        }
+                    }
+                    $zip->close();
+                    header('Content-Type: application/zip');
+                    header('Content-Disposition: attachment; filename=' . $zipFileName);
+                    readfile($zipFileName);
+                    unlink($zipFileName);
+                }
+                exit;
+
+            case 'upload_icon':
+                // 上传图标
+                $file = $_FILES['iconFile'];
+                $fileName = $file['name'];
+                $uploadFile = $iconDir . $fileName;
+                if ($file['type'] === 'image/png' && move_uploaded_file($file['tmp_name'], $uploadFile)) {
+                    $iconUrl = $serverUrl . '/data/icon/' . basename($fileName);
+                    echo json_encode(['success' => true, 'iconUrl' => $iconUrl]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => '文件上传失败']);
+                }
+                exit;
+
+            case 'update_icon_list':
+                // 更新图标
+                $iconList = [];
+                $updatedIcons = json_decode($_POST['updatedIcons'], true);
+                
+                // 遍历更新数据
+                foreach ($updatedIcons as $channelData) {
+                    $channelName = strtoupper(trim($channelData['channel']));
+                    if ($channelName === '【默认台标】') {
+                        // 保存默认台标到 config.json
+                        $Config['default_icon'] = $channelData['icon'] ?? '';
+                        file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                    } else {
+                        // 处理普通台标数据
+                        $iconList[$channelName] = $channelData['icon'];
+                    }
+                }
+
+                // 过滤掉图标值为空和频道名为空的条目
+                $iconList = array_filter($iconList, function($icon, $channel) {
+                    return !empty($icon) && !empty($channel);
+                }, ARRAY_FILTER_USE_BOTH);
+
+                if (file_put_contents($iconListPath, json_encode($iconList, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) === false) {
+                    echo json_encode(['success' => false, 'message' => '更新 iconList.json 时发生错误']);
+                } else {
+                    echo json_encode(['success' => true]);
+                }
+                exit;
+
+            case 'upload_source_file':
+                // 上传直播源文件
+                $file = $_FILES['liveSourceFile'];
+                $fileName = $file['name'];
+                $uploadFile = $liveFileDir . $fileName;
+                if (move_uploaded_file($file['tmp_name'], $uploadFile)) {
+                    $liveSourceUrl = '/data/live/file/' . basename($fileName);
+                    $sourceFilePath = $liveDir . 'source.txt';
+                    $currentContent = file_get_contents($sourceFilePath);
+                    if (!file_exists($sourceFilePath) || strpos($currentContent, $liveSourceUrl) === false) {
+                        // 如果文件不存在或文件中没有该 URL，将其追加到文件末尾
+                        $contentToAppend = trim($currentContent) ? PHP_EOL . $liveSourceUrl : $liveSourceUrl;
+                        file_put_contents($sourceFilePath, $contentToAppend, FILE_APPEND);
+                    }
+                    echo json_encode(['success' => true]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => '文件上传失败']);
+                }
+                exit;
+
+            case 'save_content_to_file':
+                // 保存内容到文件
+                $filePath = __DIR__ . $_POST['file_path'] ?? '';
+                $content = $_POST['content'] ?? '';
+                if (file_put_contents($filePath, str_replace("，", ",", $content)) !== false) {
+                    echo json_encode(['success' => true]);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['success' => false]);
+                }
+                exit;
+                
+            case 'save_source_info':
+                // 更新配置文件
+                $Config['live_tvg_logo_enable'] = (int)$_POST['live_tvg_logo_enable'];
+                $Config['live_tvg_id_enable'] = (int)$_POST['live_tvg_id_enable'];
+                $Config['live_tvg_name_enable'] = (int)$_POST['live_tvg_name_enable'];
+            
+                if (file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) === false) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'message' => '保存配置文件失败']);
+                    exit;
+                }
+            
+                // 保存直播源信息
+                $content = json_decode($_POST['content'], true);
+                if (empty($content)) {
+                    echo json_encode(['success' => false, 'message' => '无效的数据']);
+                    exit;
+                }
+            
+                generateLiveFiles($content, 'tv', $saveOnly = true); // 重新生成 M3U 和 TXT 文件
+                echo json_encode(['success' => true]);
+                exit;
+
+            case 'update_config_field':
+                // 更新单个字段
+                foreach ($_POST as $key => $value) {
+                    // 排除 update_config_field 字段
+                    if ($key !== 'update_config_field') {
+                        $Config[$key] = is_numeric($value) ? intval($value) : $value;
+                    }
+                }
+                if (file_put_contents($configPath, json_encode($Config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) !== false) {
+                    echo json_encode(['success' => $Config]);
+                } else {
+                    http_response_code(500);
+                    echo '保存失败';
+                }
+                exit;
+        }
     }
 } catch (Exception $e) {
     // 处理数据库连接错误
-    $logData = [];
-    $cronLogData = [];
-    $channels = [];
 }
 
 // 生成配置管理表单
+include 'assets/html/manage.html';
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>管理配置</title>
-    <link rel="stylesheet" type="text/css" href="css/manage.css">
-</head>
-<body>
-<div class="container">
-    <h2>管理配置</h2>
-    <form method="POST" id="settingsForm">
-
-        <label for="xml_urls">EPG源地址（支持 xml 跟 .xml.gz 格式， # 为注释）</label><br><br>
-        <textarea class="code-font" placeholder="一行一个，地址前面加 # 可以临时停用，后面加 # 可以备注。快捷键： Ctrl+/  。" id="xml_urls" name="xml_urls" rows="5"><?php echo implode("\n", array_map('trim', $Config['xml_urls'])); ?></textarea><br><br>
-
-        <!--
-        这一块没处理好，我要疯了，要不然就是提交有问题，要不然就是读取不了
-        见底部代码
-        <label for="disable_elements">
-            <input type="checkbox" id="disable_elements" onclick="toggleDisable()" style="margin-right: 10px;">
-            我使用宝塔面板定时任务<br><br>
-        </label>
-        -->
-        <!-- ('.input-days-to-keep, .input-time, .input-time2, .input-time3'); -->
-        <label for="days_to_keep" class="label-days-to-keep">数据保存天数</label>
-        <label for="start_time" class="label-time custom-margin1">【定时任务】： 开始时间</label>
-        <label for="end_time" class="label-time2 custom-margin2">结束时间</label>
-        <label for="interval_time" class="label-time3 custom-margin3">间隔周期 (选0小时0分钟取消)</label>
-
-        <div class="form-row">
-            <select id="days_to_keep" name="days_to_keep" class="input-days-to-keep" required>
-                <?php for ($i = 1; $i <= 30; $i++): ?>
-                    <option value="<?php echo $i; ?>" <?php echo $Config['days_to_keep'] == $i ? 'selected' : ''; ?>>
-                        <?php echo $i; ?>
-                    </option>
-                <?php endfor; ?>
-            </select>
-            <input type="time" id="start_time" name="start_time" class="input-time" value="<?php echo $Config['start_time']; ?>" required>
-            <input type="time" id="end_time" name="end_time" class="input-time2" value="<?php echo $Config['end_time']; ?>" required>
-            
-            <!-- Interval Time Controls -->
-            <select id="interval_hour" name="interval_hour" class="input-time3" required>
-                <?php for ($h = 0; $h < 24; $h++): ?>
-                    <option value="<?php echo $h; ?>" <?php echo intval($Config['interval_time']) / 3600 == $h ? 'selected' : ''; ?>>
-                        <?php echo $h; ?>
-                    </option>
-                <?php endfor; ?>
-            </select> 小时
-            <select id="interval_minute" name="interval_minute" class="input-time3" required>
-                <?php for ($m = 0; $m < 60; $m++): ?>
-                    <option value="<?php echo $m; ?>" <?php echo (intval($Config['interval_time']) % 3600) / 60 == $m ? 'selected' : ''; ?>>
-                        <?php echo $m; ?>
-                    </option>
-                <?php endfor; ?>
-            </select> 分钟
-        </div><br>
-        
-        <div class="flex-container">
-            <div class="flex-item" style="width: 40%;">
-                <label for="channel_replacements">频道忽略字符串（按顺序， \s 空格）</label><br><br>
-                <textarea class="code-font" id="channel_replacements" name="channel_replacements" style="height: 138px;"><?php echo implode("\n", array_map('trim', $Config['channel_replacements'])); ?></textarea><br><br>
-            </div>
-            <div class="flex-item" style="width: 60%;">
-                <label for="channel_mappings">频道映射（正则表达式 regex: ）</label><br><br>
-                <div class="table-wrapper">
-                    <table id="channelMappingsTable">
-                        <thead style="position: sticky; top: 0; background-color: #ffffff;" class="code-font"><tr>                                
-                            <th>自定义频道名（可用 , 分隔）</th>
-                            <th><span onclick="showModal('channel')" style="color: blue; cursor: pointer;">数据库频道名</span></th>
-                        </tr></thead>
-                        <tbody class="code-font">
-                            <?php foreach ($Config['channel_mappings'] as $search => $replace): ?>
-                            <tr>
-                                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                                    <?php echo htmlspecialchars(trim($search, '[]'), ENT_QUOTES); ?>
-                                    <input type="hidden" name="channel_mappings[][search]" value="<?php echo htmlspecialchars(trim($search, '[]'), ENT_QUOTES); ?>">
-                                </td>
-                                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                                    <?php echo htmlspecialchars($replace, ENT_QUOTES); ?>
-                                    <input type="hidden" name="channel_mappings[][replace]" value="<?php echo htmlspecialchars($replace, ENT_QUOTES); ?>">
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <!-- 初始空行 -->
-                            <tr>
-                                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                                    <input type="hidden" name="channel_mappings[][search]" value="">
-                                </td>
-                                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                                    <input type="hidden" name="channel_mappings[][replace]" value="">
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div><br>
-            </div>
-        </div>
-
-        <div class="tooltip">
-            <input id="updateConfig" type="submit" name="update" value="更新配置">
-            <span class="tooltiptext">快捷键：Ctrl+S</span>
-        </div><br><br>
-        <div class="button-container">
-            <a href="update.php" target="_blank">更新数据库</a>
-            <!--<a href="phpliteadmin.php" target="_blank">管理数据库</a>-->
-            <button type="button" onclick="showModal('cron')">定时任务日志</button>
-            <button type="button" onclick="showModal('update')">更新日志</button>
-            <button type="button" onclick="showModal('moresetting')">更多设置</button>
-            <button type="button" name="logoutbtn" onclick="logout()">退出</button>
-        </div>
-    </form>
-</div>
-
-<!-- 底部显示 -->
-<div class="footer">
-    <a href="https://github.com/mxdabc/epgphp" style="color: #888; text-decoration: none;">Crestekk EPG PHP Version. V1.0</a>
-</div>
-
-<!-- 配置更新模态框 -->
-<div id="myModal" class="modal">
-    <div class="modal-content config-modal-content">
-        <span class="close">&times;</span>
-        <p id="modalMessage"></p>
-    </div>
-</div>
-
-<!-- 更新日志模态框 -->
-<div id="updatelogModal" class="modal">
-    <div class="modal-content update-log-modal-content">
-        <span class="close">&times;</span>
-        <h2>数据库更新日志</h2>
-        <div class="table-container" id="log-table-container">
-            <table id="logTable">
-                <thead style="position: sticky; top: 0; background-color: white;">
-                    <tr>
-                        <th>时间</th>
-                        <th>描述</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- 数据由 JavaScript 动态生成 -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- 定时任务日志模态框 -->
-<div id="cronlogModal" class="modal">
-    <div class="modal-content cron-log-modal-content">
-        <span class="close">&times;</span>
-        <h2>定时任务日志</h2>
-        <textarea id="cronLogContent" readonly style="width: 100%; height: 440px;"></textarea>
-    </div>
-</div>
-
-<!-- 频道列表模态框 -->
-<div id="channelModal" class="modal">
-    <div class="modal-content channel-modal-content">
-        <span class="close">&times;</span>
-        <h2 id="channelModalTitle">频道列表</h2>
-        <input type="text" id="searchInput" placeholder="搜索频道名..." onkeyup="filterChannels()">
-        <textarea id="channelList" readonly style="width: 100%; height: 390px;"></textarea>
-    </div>
-</div>
-
-<!-- 更多设置模态框 -->
-<div id="moreSettingModal" class="modal">
-    <div class="modal-content more-setting-modal-content">
-        <span class="close">&times;</span>
-        <h2>更多设置</h2>
-        <label for="gen_xml">生成 xmltv 文件：</label>
-        <select id="gen_xml" name="gen_xml" required>
-            <option value="1" <?php if ($Config['gen_xml'] == 1) echo 'selected'; ?>>t.xml.gz</option>
-            <option value="2" <?php if ($Config['gen_xml'] == 2) echo 'selected'; ?>>t.xml</option>
-            <option value="3" <?php if ($Config['gen_xml'] == 3) echo 'selected'; ?>>同时生成</option>
-            <option value="0" <?php if ($Config['gen_xml'] == 0) echo 'selected'; ?>>不生成</option>
-        </select>
-        <label for="include_future_only">生成方式：</label>
-        <select id="include_future_only" name="include_future_only" required>
-            <option value="1" <?php if ($Config['include_future_only'] == 1) echo 'selected'; ?>>仅预告数据</option>
-            <option value="0" <?php if ($Config['include_future_only'] == 0) echo 'selected'; ?>>所有数据</option>
-        </select>
-        <br><br>
-        <label for="proc_chname">入库前处理频道名：</label>
-        <select id="proc_chname" name="proc_chname" required>
-            <option value="1" <?php if (!isset($Config['proc_chname']) || $Config['proc_chname'] == 1) echo 'selected'; ?>>是</option>
-            <option value="0" <?php if (isset($Config['proc_chname']) && $Config['proc_chname'] == 0) echo 'selected'; ?>>否</option>
-        </select>
-        <label for="ret_default">默认返回“精彩节目”：</label>
-        <select id="ret_default" name="ret_default" required>
-            <option value="1" <?php if (!isset($Config['ret_default']) || $Config['ret_default'] == 1) echo 'selected'; ?>>是</option>
-            <option value="0" <?php if (isset($Config['ret_default']) && $Config['ret_default'] == 0) echo 'selected'; ?>>否</option>
-        </select>
-        <br><br>
-        <label for="gen_list_text">仅生成以下频道的节目单：</label>
-        <span onclick="parseSource()">
-            （可粘贴 txt、m3u 直播源并<span style="color: blue; cursor: pointer;">点击解析</span>）
-        </span><br><br>
-        <textarea id="gen_list_text" style="width: 100%; height: 260px;"></textarea><br><br>
-        <button id="saveConfig" type="button" onclick="saveAndUpdateConfig();">保存配置</button>
-    </div>
-</div>
-
-<script>
-    //document.addEventListener('DOMContentLoaded', function() {
-    //    // 获取复选框元素
-    //    const checkbox = document.getElementById('disable_elements');
-    //
-    //    // 从 status.php 获取状态
-    //    fetch('status.php')
-    //        .then(response => response.text())
-    //        .then(status => {
-    //            checkbox.checked = status == '1'; // 更新复选框的状态
-    //            toggleDisable(); // 根据复选框状态启用或禁用输入框
-    //        })
-    //        .catch(error => console.error('Error:', error));
-    //});
-
-    //function toggleDisable() {
-        //var checkbox = document.getElementById('disable_elements');
-        //var elements = document.querySelectorAll('.input-days-to-keep, .input-time, .input-time2, .input-time3');
-        
-        //const status = checkbox.checked ? 1 : 0;
-        // const url = `status.php?status=${status}`;
-
-        // 创建一个新的 XMLHttpRequest 对象
-        // const xhr = new XMLHttpRequest();
-        // xhr.open('POST', url, true);
-        // xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-        // 发送请求
-        // xhr.send();
-
-        // 可选：处理响应
-        // xhr.onload = function () {
-        //    if (xhr.status >= 200 && xhr.status < 300) {
-        //        console.log('Request successful:', xhr.responseText);
-        //    } else {
-        //        console.error('Request failed:', xhr.statusText);
-        //    }
-        //};
-
-        //if (checkbox.checked) {
-        //    console.log("宝塔面板定时任务已选中");
-        //} else {
-        //    console.log("宝塔面板定时任务未选中");
-        //}
-
-        //elements.forEach(function(element) {
-        //    if (checkbox.checked) {
-        //        element.disabled = true; // 禁用输入框
-        //    } else {
-        //        element.disabled = false; // 启用输入框
-        //    }
-        //});
-
-        // 发送状态到服务器
-        //fetch(`status.php?status=${checkbox.checked ? 1 : 0}`)
-        //    .then(response => response.text())
-        //    .then(data => console.log(data))
-        //    .catch(error => console.error('Error:', error));
-    //}
-
-    // 退出登录
-    function logout() {
-        // 清除所有cookies
-        document.cookie.split(";").forEach(function(cookie) {
-            var name = cookie.split("=")[0].trim();
-            document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
-        });        
-        // 清除本地存储
-        sessionStorage.clear();
-        // 重定向到登录页面
-        window.location.href = 'manage.php';
-    }
-    // 频道映射自动添加空行
-    function addRowIfNeeded(cell) {
-        var row = cell.parentElement;
-        var table = row.parentElement;
-        var isLastRow = row === table.lastElementChild;
-        if (isLastRow && cell.innerText.trim() !== "") {
-            var newRow = table.insertRow();
-            newRow.innerHTML = `
-                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                    <input type="hidden" name="channel_mappings[][search]" value="">
-                </td>
-                <td contenteditable="true" oninput="updateHiddenInput(this); addRowIfNeeded(this)">
-                    <input type="hidden" name="channel_mappings[][replace]" value="">
-                </td>`;
-            newRow.scrollIntoView({ behavior: 'smooth', block: 'end' });// 自动滚动到新添加的行
-        }
-    }
-    function updateHiddenInput(cell) {
-        var hiddenInput = cell.querySelector('input[type="hidden"]');
-        hiddenInput.value = cell.textContent.trim();
-    }
-
-    let genListLoaded = false; // 用于跟踪数据是否已加载
-
-    // Ctrl+S 保存设置
-    document.addEventListener("keydown", function(event) {
-        if (event.ctrlKey && event.key === "s") {
-            event.preventDefault(); // 阻止默认行为，如保存页面
-            saveAndUpdateConfig();
-        }
-    });
-
-    // Ctrl+/ 设置（取消）注释
-    document.getElementById('xml_urls').addEventListener('keydown', function(event) {
-    if (event.ctrlKey && event.key === '/') {
-            event.preventDefault();
-            const textarea = this;
-            const { selectionStart, selectionEnd, value } = textarea;
-            const lines = value.split('\n');
-            // 计算当前选中的行
-            const startLine = value.slice(0, selectionStart).split('\n').length - 1;
-            const endLine = value.slice(0, selectionEnd).split('\n').length - 1;
-            // 判断选中的行是否都已注释
-            const allCommented = lines.slice(startLine, endLine + 1).every(line => line.trim().startsWith('#'));
-            const newLines = lines.map((line, index) => {
-                if (index >= startLine && index <= endLine) {
-                    return allCommented ? line.replace(/^#\s*/, '') : '# ' + line;
-                }
-                return line;
-            });
-            // 更新 textarea 的内容
-            textarea.value = newLines.join('\n');
-            // 检查光标开始位置是否在行首
-            const startLineStartIndex = value.lastIndexOf('\n', selectionStart - 1) + 1;
-            const isStartInLineStart = (selectionStart - startLineStartIndex < 2);
-            // 检查光标结束位置是否在行首
-            const endLineStartIndex = value.lastIndexOf('\n', selectionEnd - 1) + 1;
-            const isEndInLineStart = (selectionEnd - endLineStartIndex < 2);
-            // 计算光标新的开始位置
-            const newSelectionStart = isStartInLineStart 
-                ? startLineStartIndex
-                : selectionStart + newLines[startLine].length - lines[startLine].length;
-            // 计算光标新的结束位置
-            const lengthDiff = newLines.join('').length - lines.join('').length;
-            const endLineDiff = newLines[endLine].length - lines[endLine].length;
-            const newSelectionEnd = isEndInLineStart
-                ? (endLineDiff > 0 ? endLineStartIndex + lengthDiff : endLineStartIndex + lengthDiff - endLineDiff)
-                : selectionEnd + lengthDiff;
-            // 恢复光标位置
-            textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
-        }
-    });
-
-    function formatTime(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return `${hours}小时${minutes}分钟`;
-    }
-
-    var configUpdated = <?php echo json_encode($configUpdated); ?>;
-    var intervalTime = "<?php echo $Config['interval_time']; ?>";
-    var startTime = "<?php echo $Config['start_time']; ?>";
-    var endTime = "<?php echo $Config['end_time']; ?>";
-
-    if (configUpdated) {
-        var modal = document.getElementById("myModal");
-        var span = document.getElementsByClassName("close")[0];
-        var modalMessage = document.getElementById("modalMessage");
-        //var disableCheckbox = document.getElementById('disable_elements');
-        
-        //if (disableCheckbox.checked) {
-        //    console.log("宝塔面板定时任务已选中 并保存成功");
-        //}
-        //else {
-        //    console.log("宝塔面板定时任务未选中 并保存成功");
-        //}
-
-        //if (disableCheckbox.checked) {
-        //    modalMessage.innerHTML = "配置已更新<br><br>您已选择宝塔面板<br>已取消自带的定时任务";
-        //} else if (intervalTime === "0") {
-
-        if (intervalTime === "0") {
-            modalMessage.innerHTML = "配置已更新<br><br>已取消定时任务";
-        } else {
-            modalMessage.innerHTML = `配置已更新<br><br>已设置定时任务<br>开始时间：${startTime}<br>结束时间：${endTime}<br>间隔周期：${formatTime(intervalTime)}`;
-        }
-
-        modal.style.display = "block";
-        span.onclick = function() {
-            modal.style.display = "none";
-        }
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
-        $configUpdated = false;
-    }
-
-
-    function showModal(type) {
-        var modal, logSpan, logContent;
-        switch (type) {
-        case 'update':
-            modal = document.getElementById("updatelogModal");
-            logSpan = document.getElementsByClassName("close")[1];
-            fetchLogs('<?php echo $_SERVER['PHP_SELF']; ?>?get_update_logs=true', updateLogTable);
-            break;
-        case 'cron':
-            modal = document.getElementById("cronlogModal");
-            logSpan = document.getElementsByClassName("close")[2];
-            fetchLogs('<?php echo $_SERVER['PHP_SELF']; ?>?get_cron_logs=true', updateCronLogContent);
-            break;
-        case 'channel':
-            modal = document.getElementById("channelModal");
-            logSpan = document.getElementsByClassName("close")[3];
-            fetchLogs('<?php echo $_SERVER['PHP_SELF']; ?>?get_channel=true', updateChannelList);
-            document.getElementById('searchInput').value = ""; // 清空搜索框
-            break;
-        case 'moresetting':
-            modal = document.getElementById("moreSettingModal");
-            logSpan = document.getElementsByClassName("close")[4];            
-            fetchLogs('<?php echo $_SERVER['PHP_SELF']; ?>?get_gen_list=true', updateGenList);
-            genListLoaded = true; // 数据已加载
-            break;
-        default:
-            console.error('Unknown type:', type);
-            break;
-        }
-        modal.style.display = "block";
-        logSpan.onclick = function() {
-            modal.style.display = "none";
-        }
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
-    }
-
-    function fetchLogs(endpoint, callback) {
-        fetch(endpoint)
-            .then(response => response.json())
-            .then(data => callback(data))
-            .catch(error => {
-                console.error('Error fetching log:', error);
-                callback([]);
-            });
-    }
-
-    function updateLogTable(logData) {
-        var logTableBody = document.querySelector("#logTable tbody");
-        logTableBody.innerHTML = '';
-
-        logData.forEach(log => {
-            var row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${new Date(log.timestamp).toLocaleString()}</td>
-                <td>${log.log_message}</td>
-            `;
-            logTableBody.appendChild(row);
-        });
-        var logTableContainer = document.getElementById("log-table-container");
-        logTableContainer.scrollTop = logTableContainer.scrollHeight;
-    }
-
-    function updateCronLogContent(logData) {
-        var logContent = document.getElementById("cronLogContent");
-        logContent.value = logData.map(log => `[${new Date(log.timestamp).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} ${new Date(log.timestamp).toLocaleTimeString()}] ${log.log_message}`).join('\n');
-        logContent.scrollTop = logContent.scrollHeight;
-    }
-
-    function updateChannelList(data) {
-        const channelList = document.getElementById('channelList');
-        const channelTitle = document.getElementById('channelModalTitle');
-        channelList.dataset.allChannels = data.channels.join('\n'); // 保存所有频道数据
-        channelList.value = channelList.dataset.allChannels;
-        channelTitle.innerHTML = `频道列表<span style="font-size: 18px;">（总数：${data.count}）</span>`; // 更新频道总数
-    }
-
-    function updateGenList(genData) {
-        const gen_list_text = document.getElementById('gen_list_text');
-        gen_list_text.value = genData.join('\n');
-    }
-
-    function filterChannels() {
-        var input = document.getElementById('searchInput').value.toLowerCase();
-        var channelList = document.getElementById('channelList');
-        var allChannels = channelList.dataset.allChannels.split('\n');
-        var filteredChannels = allChannels.filter(channel => channel.toLowerCase().includes(input));
-        channelList.value = filteredChannels.join('\n');
-    }
-
-    // 解析 txt、m3u 直播源，并生成频道列表
-    function parseSource() {
-        const textarea = document.getElementById('gen_list_text');
-        const text = textarea.value;
-        const channels = new Set();
-        if (text.includes('#EXTM3U')) {
-            if (text.includes('tvg-name')) {
-                text.replace(/tvg-name="([^"]+)"/g, (_, name) => channels.add(name.trim()));
-            } else {
-                text.replace(/#EXTINF:[^,]*,([^,\n]+)/g, (_, name) => channels.add(name.trim()));
-            }
-        } else {
-            text.split('\n').forEach(line => {
-                if (line && !line.includes('#genre#')) {
-                    channels.add(line.split(',')[0].trim());
-                }
-            });
-        }
-        textarea.value = Array.from(channels).join('\n');
-    }
-
-    // 保存数据并更新配置
-    function saveAndUpdateConfig() {
-        if (!genListLoaded) {
-            document.getElementById('updateConfig').click();
-            return;
-        }
-        const textAreaContent = document.getElementById('gen_list_text').value;
-        fetch('<?php echo $_SERVER['PHP_SELF']; ?>?set_gen_list=true', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ data: textAreaContent })
-        })
-        .then(response => response.text())
-        .then(responseText => {
-            if (responseText.trim() === 'success') {
-                document.getElementById('updateConfig').click();
-            } else {
-                console.error('服务器响应错误:', responseText);
-            }
-        })
-        .catch(error => {
-            console.error('请求失败:', error);
-        });
-    }
-
-    // 在提交表单时，将更多设置中的数据包括在表单数据中
-    document.getElementById('settingsForm').addEventListener('submit', function() {
-        const fields = ['gen_xml', 'include_future_only', 'proc_chname', 'ret_default'];
-        fields.forEach(function(field) {
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name = field;
-            hiddenInput.value = document.getElementById(field).value;
-            this.appendChild(hiddenInput);
-        }, this);
-    });
-    
-</script>
-</body>
-</html>
-
-<!--
-config.json 尾部加入 
-,"BTPanel_scheduled_tasks": 0
-status.php 内容
-    $configFile = 'config.json';
-
-    // 处理 POST 请求以更新配置
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // 获取 POST 数据
-        $status = isset($_POST['status']) ? intval($_POST['status']) : 0;
-
-        // 读取配置文件
-        if (file_exists($configFile)) {
-            $config = json_decode(file_get_contents($configFile), true);
-            // 更新 BTPanel_scheduled_tasks 的值
-            $config['BTPanel_scheduled_tasks'] = $status;
-
-            // 写回配置文件
-            file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-            echo 'Configuration updated successfully.';
-        } else {
-            echo 'Configuration file not found.';
-        }
-    } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        // 处理 GET 请求中包含 status 参数以更新配置
-        if (isset($_GET['status'])) {
-            $status = isset($_GET['status']) ? intval($_GET['status']) : 0;
-
-            // 读取配置文件
-            if (file_exists($configFile)) {
-                $config = json_decode(file_get_contents($configFile), true);
-                // 更新 BTPanel_scheduled_tasks 的值
-                $config['BTPanel_scheduled_tasks'] = $status;
-
-                // 写回配置文件
-                file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-                echo 'Configuration and flag updated successfully.';
-            } else {
-                echo 'Configuration file not found.';
-            }
-        } else {
-            // 处理 GET 请求以获取 BTPanel_scheduled_tasks 的值
-            if (file_exists($configFile)) {
-                $config = json_decode(file_get_contents($configFile), true);
-                $BTPanel_scheduled_tasks = isset($config['BTPanel_scheduled_tasks']) ? (int)$config['BTPanel_scheduled_tasks'] : 0;
-                echo $BTPanel_scheduled_tasks;
-            } else {
-                echo '0'; // 配置文件不存在时返回 0
-            }
-        }
-    }
--->

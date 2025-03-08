@@ -2,18 +2,16 @@
 /**
  * @file cron.php
  * @brief 定时任务脚本
- * 
+ *
  * 该脚本用于在特定时间间隔内执行 update.php，以实现定时任务功能。
- * 添加对Arch Linux的优化
- * 
+ *
  * 作者: Tak
- * GitHub: https://github.com/TakcC/PHP-EPG-Docker-Server
- * 修改: mxdabc
- * Github: https://github.com/mxdabc/epgphp
+ * GitHub: https://github.com/taksssss/EPG-Server
  */
 
-// 引入公共脚本
+// 引入公共脚本，初始化数据库
 require_once 'public.php';
+initialDB();
 
 // 取消时间限制
 set_time_limit(0);
@@ -24,7 +22,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 // 日志记录函数
-function logMessage($message) {
+function logCronMessage($message) {
     global $db;
     try {
         $timestamp = date('Y-m-d H:i:s'); // 使用设定的时区时间
@@ -37,49 +35,33 @@ function logMessage($message) {
     }
 }
 
-// 获取当前进程的PID
-$currentPid = getmypid();
+$currentPid = posix_getpid(); // 获取当前进程ID
+$processName = 'cron.php';
+$oldPids = [];
+exec("pgrep -f '{$processName}'", $oldPids);
 
-// 检查是否已有实例在运行
-$output = [];
-exec("ps aux | grep '[c]ron.php'", $output);
-foreach ($output as $line) {
-    // 提取进程信息
-    $parts = preg_split('/\s+/', $line);
-    $pid = $parts[1];
-    // 排除当前进程的PID
-    if (isset($pid) && $pid != $currentPid && posix_kill($pid, 0)) {
+foreach ($oldPids as $pid) {
+    if ($pid != $currentPid && posix_kill($pid, 0)) {
         if (posix_kill($pid, 9)) {
-            logMessage("【终止旧进程】 {$pid}");
+            logCronMessage("【终止旧进程】 {$pid}");
         } else {
-            logMessage("无法终止旧的进程 {$pid}");
+            logCronMessage("无法终止旧的进程 {$pid}");
         }
     }
 }
 
-// 检查配置中是否存在 interval_time
-if (!isset($Config['interval_time'])) {
-    logMessage("不存在间隔时间。退出...");
-    exit;
-}
-
-// 从配置中获取间隔时间
-$interval_time = $Config['interval_time'];
+// 从配置中获取间隔时间，如果不存在则默认为0
+$interval_time = $Config['interval_time'] ?? 0;
 
 // 如果间隔时间为0，则不执行
 if ($interval_time == 0) {
-    logMessage("间隔时间设置为0。退出...");
+    logCronMessage("【取消定时任务】间隔时间设置为0。");
     exit;
 }
 
 // 检查配置中是否存在首次执行时间和结束时间
-if (!isset($Config['start_time'])) {
-    logMessage("不存在start_time。退出...");
-    exit;
-}
-
-if (!isset($Config['end_time'])) {
-    logMessage("不存在end_time。退出...");
+if (!isset($Config['start_time']) || !isset($Config['end_time'])) {
+    logCronMessage("不存在首次执行时间或结束时间。退出...");
     exit;
 }
 
@@ -127,22 +109,22 @@ if ($next_execution_time >= $end_time_today) {
 $initial_sleep = $next_execution_time - $current_time;
 
 // 汇总所有日志信息
-logMessage("【开始时间】 " . date('H:i', $first_run_today));
-logMessage("【结束时间】 " . date('H:i', $end_time_today));
+logCronMessage("【开始时间】 " . date('H:i', $first_run_today));
+logCronMessage("【结束时间】 " . date('H:i', $end_time_today));
 $logContent = "【间隔时间】 " . gmdate('H小时i分钟', $interval_time) . "\n";
-$logContent .= "\t\t  -------运行时间表-------\n";
+$logContent .= "\t\t\t\t-------运行时间表-------\n";
 
 // 循环输出每次执行的时间
 $current_execution_time = $first_run_today;
 while ($current_execution_time < $end_time_today) {
-    $logContent .= "\t\t\t   " . date('H:i', $current_execution_time) . "\n";
+    $logContent .= "\t\t\t\t\t      " . date('H:i', $current_execution_time) . "\n";
     $current_execution_time += $interval_time;
 }
-$logContent .= "\t\t  ------------------------";
-logMessage($logContent);
+$logContent .= "\t\t\t\t--------------------------";
+logCronMessage($logContent);
 
-logMessage("【下次执行】 " . date('m/d H:i', $next_execution_time));
-logMessage("【等待时间】 " . gmdate('H小时i分钟', $initial_sleep));
+logCronMessage("【下次执行】 " . date('m/d H:i', $next_execution_time));
+logCronMessage("【等待时间】 " . gmdate('H小时i分钟', $initial_sleep));
 
 // 提交事务
 $db->commit();
@@ -153,8 +135,8 @@ sleep($initial_sleep);
 // 无限循环，可以使用实际需求中的退出条件
 while (true) {
     // 执行update.php
-    exec('php update.php');
-    logMessage("【成功执行】 update.php");
+    exec('php ' . __DIR__ . '/update.php');
+    logCronMessage("【成功执行】 update.php");
 
     // 计算下一个执行时间
     $current_time = time();
@@ -171,7 +153,7 @@ while (true) {
     $sleep_time = $next_execution_time - $current_time;
 
     // 记录下次执行时间
-    logMessage("【下次执行】 " . date('m/d H:i', $next_execution_time));
+    logCronMessage("【下次执行】 " . date('m/d H:i', $next_execution_time));
 
     // 等待到下一个执行时间
     sleep($sleep_time);

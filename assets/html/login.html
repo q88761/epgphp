@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>登录</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="assets/css/login.css">
+    <link rel="icon" href="assets/html/favicon.ico" type="image/x-icon">
+    <link href="https://gfonts.aby.pub" rel="preconnect" crossorigin />
+    <link href="https://lf3-cdn-tos.bytecdntp.com" rel="preconnect" crossorigin />
+    <link href="https://lf3-cdn-tos.bytecdntp.com/cdn/expire-1-M/font-awesome/6.0.0/css/all.min.css" type="text/css" rel="stylesheet" />
+</head>
+<body>
+<script>
+(function() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.body.classList.add(savedTheme);
+    } else {
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark');
+        }
+    }
+})();
+</script>
+<div class="container">
+	<div class="screen">
+		<div class="screen__content">
+			<form method="post" class="login">
+                <h2>EPG System.</h2>
+                <!-- 
+                用户名暂未完成相关代码实现，先注释掉 
+				<div class="login__field">
+					<i class="login__icon fas fa-user"></i>
+					<input type="text" class="login__input" placeholder="User name / Email">
+				</div>
+                -->
+				<div class="login__field">
+					<i class="login__icon fas fa-lock"></i>
+					<input type="password" id="password" name="password" class="login__input" placeholder="Password">
+                    <input type="hidden" name="login" value="1">
+				</div>
+				<input type="submit" value="Log In" class="login__submit"></input>
+			</form>
+            <?php if (!empty($error)) echo "<p style='color:red;'>&nbsp;Error: $error</p>"; ?>
+            <?php echo $passwordChangedMessage; ?>
+            <?php echo $passwordChangeErrorMessage; ?>
+		</div>
+		<div class="screen__background">
+			<span class="screen__background__shape screen__background__shape4"></span>
+			<span class="screen__background__shape screen__background__shape3"></span>		
+			<span class="screen__background__shape screen__background__shape2"></span>
+			<span class="screen__background__shape screen__background__shape1"></span>
+		</div>		
+	</div>
+</div>
+
+<!-- 底部显示 -->
+<footer>
+    <a href="https://github.com/mxdabc/epgphp" target="_blank" class="footer"><i class="fa-solid fa-server"></i>&nbsp;Crestekk Team EPG System for PHP.</a>
+</footer>
+<script src="static/js/mxd.js"></script>
+</body>
+</html>
