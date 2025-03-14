@@ -26,13 +26,16 @@ parse_str(str_replace('+', '%2B', parse_url($requestUrl, PHP_URL_QUERY)), $query
 
 // 获取 URL 中的 token 参数并验证
 $tokenRange = $Config['token_range'] ?? 1;
-$token = $query_params['token'] ?? '';
 $live = $query_params['live'] ?? '';
-if ($tokenRange !== 0 && $token !== $Config['token'] && 
-    (($tokenRange !== 2 && $live) || ($tokenRange !== 1 && !$live))) {
-    http_response_code(403);
-    echo '访问被拒绝：无效的 Token。';
-    exit;
+if ($tokenRange !== 0) {
+    $allowedTokens = array_map('trim', explode(',', $Config['token'] ?? ''));
+    $token = $query_params['token'] ?? '';
+    if (!in_array($token, $allowedTokens) &&  (($tokenRange !== 2 && $live) || 
+        ($tokenRange !== 1 && !$live))) {
+        http_response_code(403);
+        echo '访问被拒绝：无效的 Token。';
+        exit;
+    }
 }
 
 // 获取请求的 User-Agent 并验证
@@ -86,18 +89,35 @@ function getFormatTime($time) {
     return ['date' => $date, 'time' => $time];
 }
 
+// 检查 Memcached 状态
+$memcached_enabled = class_exists('Memcached') && ($memcached = new Memcached())->addServer('localhost', 11211);
+
+// 检查 Redis 状态
+$redis_enabled = class_exists('Redis') && ($redis = new Redis())->connect('127.0.0.1', 6379);
+if ($redis_enabled && isset($Config['redis_password'])) {
+    $redis->auth($Config['redis_password']);
+}
+
 // 从数据库读取 diyp、lovetv 数据，兼容未安装 memcached 的情况
 function readEPGData($date, $oriChannelName, $cleanChannelName, $db, $type) {
     // 默认缓存 24 小时，更新数据时清空
     $cache_time = 24 * 3600;
 
-    // 检查 Memcached 状态
-    $memcached_enabled = class_exists('Memcached') && ($memcached = new Memcached())->addServer('localhost', 11211);
+    // 检查 Memcached 和 Redis 状态
+    global $memcached_enabled, $redis_enabled, $memcached, $redis;
     $cache_key = base64_encode("{$date}_{$cleanChannelName}_{$type}");
 
     if ($memcached_enabled) {
-        // 从缓存中读取数据
+        // 从 Memcached 缓存中读取数据
         $cached_data = $memcached->get($cache_key);
+        if ($cached_data) {
+            return $cached_data;
+        }
+    }
+
+    if ($redis_enabled) {
+        // 从 Redis 缓存中读取数据
+        $cached_data = $redis->get($cache_key);
         if ($cached_data) {
             return $cached_data;
         }
@@ -153,9 +173,12 @@ function readEPGData($date, $oriChannelName, $cleanChannelName, $db, $type) {
     $row = json_encode($rowArray, JSON_UNESCAPED_UNICODE);
 
     if ($type === 'diyp') {
-        // 如果 Memcached 可用，将结果存储到缓存中
+        // 如果 Memcached 或 Redis 可用，将结果存储到缓存中
         if ($memcached_enabled) {
             $memcached->set($cache_key, $row, $cache_time);
+        }
+        if ($redis_enabled) {
+            $redis->set($cache_key, $row, $cache_time);
         }
         return $row;
     }
@@ -196,9 +219,12 @@ function readEPGData($date, $oriChannelName, $cleanChannelName, $db, $type) {
 
         $response = json_encode($lovetv_data, JSON_UNESCAPED_UNICODE);
 
-        // 如果 Memcached 可用，将结果存储到缓存中
+        // 如果 Memcached 或 Redis 可用，将结果存储到缓存中
         if ($memcached_enabled) {
             $memcached->set($cache_key, $response, $cache_time);
+        }
+        if ($redis_enabled) {
+            $redis->set($cache_key, $response, $cache_time);
         }
 
         return $response;
