@@ -1,5 +1,10 @@
 > [!IMPORTANT]  
 > The documentation for this project is still under preparation and is not yet complete.
+> 
+> There is no documentation reference, it is currently under development, the owner is busy with his studies, and it will not be put into development until the end of June 2024.
+
+> [!WARNING]  
+> Redis has been added and stability is being **tested**.
 
 ![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%20version%20of%20the%20EPG%20service%2C%20more%20lightweight.&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto)
 
