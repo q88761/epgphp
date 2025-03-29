@@ -7,6 +7,8 @@
  *
  * 作者: Tak
  * GitHub: https://github.com/taksssss/EPG-Server
+ * 二次开发: mxdabc
+ * Github: https://github.com/mxdabc/epgphp
  */
 
 // 引入公共脚本，初始化数据库

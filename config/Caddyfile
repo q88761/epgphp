@@ -1,0 +1,54 @@
+{
+    http2 {
+        enabled true
+    }
+    log {
+        output file /var/log/wwwlog/www.example.com.error.log
+    }
+}
+
+www.example.com {
+    root * /www/example
+    file_server
+
+    @php {
+        path *.php
+    }
+    handle @php {
+        fastcgi /www/php/php-cgi-83.sock php
+    }
+
+    @config_json {
+        path /data/config.json
+    }
+    @iconList_json {
+        path /data/iconList.json
+    }
+    handle @config_json,@iconList_json {
+        respond "Forbidden" 403
+    }
+
+    @forbidden_files {
+        path_regexp ^/(\.user.ini|\.htaccess|\.git|\.env|\.svn|\.project|LICENSE|README\.md|README_zh-CN\.md|\.gitignore)$
+    }
+    handle @forbidden_files {
+        respond "Not Found" 404
+    }
+
+    encode gzip
+
+    tls /www/example/fullchain.pem /www/example/privkey.pem {
+        protocols tls1.1 tls1.2 tls1.3
+        ciphers EECDH+CHACHA20 EECDH+CHACHA20-draft EECDH+AES128 RSA+AES128 EECDH+AES256 RSA+AES256 EECDH+3DES RSA+3DES
+        prefer_server_ciphers on
+        session_cache {
+            enabled true
+            size 10m
+            timeout 10m
+        }
+        headers {
+            Strict-Transport-Security "max-age=31536000"
+            Alt-Svc 'quic=":443"; h3=":443"; h3-29=":443"; h3-27=":443";h3-25=":443"; h3-T050=":443"; h3-Q050=":443";h3-Q049=":443";h3-Q048=":443"; h3-Q046=":443"; h3-Q043=":443"'
+        }
+    }
+}

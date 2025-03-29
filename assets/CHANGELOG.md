@@ -1,6 +1,12 @@
+## V3.1
+
+1. 加入Nginx、Caddy服务器的配置文件示例，更新了一些地方。
+
 ## V3.0
 
 1. 引入Font Awesome.
+
+2. 还是加上了phpliteadmin. 正在优化
 
 ## V2.0
 

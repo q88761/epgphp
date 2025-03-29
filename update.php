@@ -7,6 +7,8 @@
  * 
  * 作者: Tak
  * GitHub: https://github.com/taksssss/EPG-Server
+ * 二次开发: mxdabc
+ * Github: https://github.com/mxdabc/epgphp
  */
 
 // 禁用 PHP 输出缓冲
@@ -356,7 +358,7 @@ function processIconListAndXmltv($db, $gen_list_mapping, &$log_messages) {
     $xmlWriter->startDocument('1.0', 'UTF-8');
     $xmlWriter->startElement('tv');
     $xmlWriter->writeAttribute('generator-info-name', 'Tak');
-    $xmlWriter->writeAttribute('generator-info-url', 'https://github.com/taksssss/EPG-Server');
+    $xmlWriter->writeAttribute('generator-info-url', 'https://github.com/mxdabc/epgphp');
     $xmlWriter->setIndent(true);
     $xmlWriter->setIndentString('	'); // 设置缩进
 

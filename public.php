@@ -7,6 +7,8 @@
  *
  * 作者: Tak
  * GitHub: https://github.com/taksssss/EPG-Server
+ * 二次开发: mxdabc
+ * Github: https://github.com/mxdabc/epgphp
  */
 
 require 'assets/opencc/vendor/autoload.php'; // 引入 Composer 自动加载器
@@ -176,7 +178,7 @@ function downloadData($url, $userAgent = '', $timeout = 30, $connectTimeout = 10
         CURLOPT_CONNECTTIMEOUT => $connectTimeout,
         CURLOPT_HTTPHEADER => [
             'User-Agent: ' . $userAgent ?: 
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
             'Accept: */*',
             'Connection: keep-alive'
         ]
@@ -350,7 +352,7 @@ function insertDataToDatabase($channelsData, $db, $sourceUrl, $replaceFlag = tru
             $diypContent = json_encode([
                 'channel_name' => $channelName,
                 'date' => $date,
-                'url' => 'https://github.com/taksssss/EPG-Server',
+                'url' => 'https://github.com/mxdabc/epgphp',
                 'source' => $sourceUrl,
                 'epg_data' => $diypProgrammes
             ], JSON_UNESCAPED_UNICODE);

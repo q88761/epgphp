@@ -1,7 +1,7 @@
 > [!IMPORTANT]  
 > The documentation for this project is still under preparation and is not yet complete.
 > 
-> There is no documentation reference, it is currently under development, the owner is busy with his studies, and it will not be put into development until the end of June 2024.
+> There is no documentation reference, it is currently under development, the owner is busy with his studies, and it will not be put into development until the end of June 2025.
 
 > [!WARNING]  
 > Redis has been added and stability is being **tested**.

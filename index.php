@@ -8,6 +8,8 @@
  *
  * 作者: Tak
  * GitHub: https://github.com/taksssss/EPG-Server
+ * 二次开发: mxdabc
+ * Github: https://github.com/mxdabc/epgphp
  */
 
 // 引入公共脚本
@@ -90,7 +92,8 @@ function getFormatTime($time) {
 }
 
 // 检查 Memcached 状态
-$memcached_enabled = class_exists('Memcached') && ($memcached = new Memcached())->addServer('localhost', 11211);
+$memcached_enabled = class_exists('Memcached') && ($memcached = new Memcached())->addServer('127.0.0.1', 11211); 
+// 奇怪了，FreeBSD 上我的 Memcached 监听不了 localhost，127.0.0.1就可以。
 
 // 检查 Redis 状态
 $redis_enabled = class_exists('Redis') && ($redis = new Redis())->connect('127.0.0.1', 6379);
@@ -101,6 +104,7 @@ if ($redis_enabled && isset($Config['redis_password'])) {
 // 从数据库读取 diyp、lovetv 数据，兼容未安装 memcached 的情况
 function readEPGData($date, $oriChannelName, $cleanChannelName, $db, $type) {
     // 默认缓存 24 小时，更新数据时清空
+    // 按需更改，如 12 小时就是 12 * 3600
     $cache_time = 24 * 3600;
 
     // 检查 Memcached 和 Redis 状态
@@ -328,13 +332,13 @@ function fetchHandler($query_params) {
             $default_diyp_program_info = [
                 'channel_name' => $cleanChannelName,
                 'date' => $date,
-                'url' => "https://github.com/taksssss/EPG-Server",
+                'url' => "https://github.com/mxdabc/epgphp",
                 'icon' => $iconUrl,
                 'epg_data' => !$ret_default ? '' : array_map(function($hour) {
                     return [
                         'start' => sprintf('%02d:00', $hour),
                         'end' => sprintf('%02d:00', ($hour + 1) % 24),
-                        'title' => '精彩节目',
+                        'title' => '此频道暂无预告或者您配置有误。',
                         'desc' => ''
                     ];
                 }, range(0, 23, 1))
@@ -347,13 +351,13 @@ function fetchHandler($query_params) {
                     'isLive' => '',
                     'liveSt' => 0,
                     'channelName' => $cleanChannelName,
-                    'lvUrl' => 'https://github.com/taksssss/EPG-Server',
+                    'lvUrl' => 'https://github.com/mxdabc/epgphp',
                     'icon' => $iconUrl,
                     'program' => !$ret_default ? '' : array_map(function($hour) {
                         return [
                             'st' => strtotime(sprintf('%02d:00', $hour)),
                             'et' => strtotime(sprintf('%02d:00', ($hour + 1) % 24)),
-                            't' => '精彩节目',
+                            't' => '此频道暂无预告或者您配置有误。',
                             'd' => ''
                         ];
                     }, range(0, 23, 1))

@@ -1,5 +1,5 @@
 // 页面加载时预加载数据，减少等待时间
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     showModal('live', popup = false);
     showModal('channel', popup = false);
     showModal('update', popup = false);
@@ -7,12 +7,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 提交配置表单
-document.getElementById('settingsForm').addEventListener('submit', function(event) {
+document.getElementById('settingsForm').addEventListener('submit', function (event) {
     event.preventDefault();  // 阻止默认表单提交
 
-    const fields = ['update_config', 'gen_xml', 'include_future_only', 'ret_default', 'all_chs', 
-        'db_type', 'mysql_host', 'mysql_dbname', 'mysql_username', 'mysql_password', 'gen_list_enable', 
-        'check_update', 'token_range', 'user_agent_range', 'live_template_enable', 'live_fuzzy_match', 
+    const fields = ['update_config', 'gen_xml', 'include_future_only', 'ret_default', 'all_chs',
+        'db_type', 'mysql_host', 'mysql_dbname', 'mysql_username', 'mysql_password', 'gen_list_enable',
+        'check_update', 'token_range', 'user_agent_range', 'live_template_enable', 'live_fuzzy_match',
         'live_url_comment', 'live_tvg_logo_enable', 'live_tvg_id_enable', 'live_tvg_name_enable'];
 
     // 创建隐藏字段并将其添加到表单
@@ -33,40 +33,41 @@ document.getElementById('settingsForm').addEventListener('submit', function(even
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        const { db_type_set, interval_time, start_time, end_time } = data;
-        
-        let message = '配置已更新<br><br>';
-        if (!db_type_set) {
-            message += 'MySQL 启用失败<br>数据库已设为 SQLite<br><br>';
-            document.getElementById('db_type').value = 'sqlite';
-            updateMySQLFields();
-        }
-        message += interval_time === 0 
-            ? "已取消定时任务" 
-            : `已设置定时任务<br>开始时间：${start_time}<br>结束时间：${end_time}<br>间隔周期：${formatTime(interval_time)}`;
-    
-        showMessageModal(message);
-    })
-    .catch(() => showMessageModal('发生错误，请重试。'));
+        .then(response => response.json())
+        .then(data => {
+            const { db_type_set, interval_time, start_time, end_time } = data;
+
+            let message = '配置已更新<br><br>';
+            if (!db_type_set) {
+                message += 'MySQL 启用失败<br>数据库已设为 SQLite<br><br>';
+                document.getElementById('db_type').value = 'sqlite';
+                updateMySQLFields();
+            }
+            message += interval_time === 0
+                ? "已取消定时任务"
+                : `已设置定时任务<br>开始时间：${start_time}<br>结束时间：${end_time}<br>间隔周期：${formatTime(interval_time)}`;
+
+            showMessageModal(message);
+        })
+        .catch(() => showMessageModal('发生错误，请重试。'));
 });
 
 // 保存配置
-function updateConfig(){
+function updateConfig() {
     document.getElementById('update_config').click();
 }
 
 // 检查数据库状况
+// 这个功能只是为了快速跳转到 PMA，用户可以自行修改路径测试。
 function handleDbManagement() {
     if (document.getElementById('db_type').value === 'mysql') {
         var img = new Image();
-        var timeout = setTimeout(function() {img.onerror();}, 1000); // 设置 1 秒超时
-        img.onload = function() {
+        var timeout = setTimeout(function () { img.onerror(); }, 1000); // 设置 1 秒超时
+        img.onload = function () {
             clearTimeout(timeout); // 清除超时
             window.open('http://' + window.location.hostname + ':8080', '_blank');
         };
-        img.onerror = function() {
+        img.onerror = function () {
             clearTimeout(timeout); // 清除超时
             showMessageModal('无法访问 phpMyAdmin 8080 端口，请自行使用 MySQL 管理工具进行管理。');
         };
@@ -79,7 +80,7 @@ function handleDbManagement() {
 // 退出登录
 function logout() {
     // 清除所有cookies
-    document.cookie.split(";").forEach(function(cookie) {
+    document.cookie.split(";").forEach(function (cookie) {
         var name = cookie.split("=")[0].trim();
         document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
     });
@@ -90,7 +91,7 @@ function logout() {
 }
 
 // Ctrl+S 保存设置
-document.addEventListener("keydown", function(event) {
+document.addEventListener("keydown", function (event) {
     if (event.ctrlKey && event.key === "s") {
         event.preventDefault(); // 阻止默认行为，如保存页面
         setGenListAndUpdateConfig();
@@ -126,7 +127,7 @@ function handleKeydown(event) {
         const endLineStartIndex = value.lastIndexOf('\n', selectionEnd - 1) + 1;
         const isEndInLineStart = (selectionEnd - endLineStartIndex < 2);
         // 计算光标新的开始位置
-        const newSelectionStart = isStartInLineStart 
+        const newSelectionStart = isStartInLineStart
             ? startLineStartIndex
             : selectionStart + newLines[startLine].length - lines[startLine].length;
         // 计算光标新的结束位置
@@ -197,7 +198,7 @@ function showModal(type, popup = true, data = '') {
             fetchData("manage.php?get_epg_by_channel=true&channel=" + encodeURIComponent(data.channel) + "&date=" + data.date, updateEpgContent);
 
             // 更新日期的点击事件
-            const updateDate = function(offset) {
+            const updateDate = function (offset) {
                 const currentDate = new Date(document.getElementById("epgDate").innerText);
                 currentDate.setDate(currentDate.getDate() + offset);
                 const newDateString = currentDate.toISOString().split('T')[0];
@@ -264,10 +265,10 @@ function showModal(type, popup = true, data = '') {
         modal.style.display = "none";
         window.onmousedown = originalOnMouseDown; // 恢复原事件
     }
-    
+
     closeBtn = modal.querySelector(".close");
     closeBtn.onmousedown = handleModalClose;
-    window.onmousedown = function(event) {
+    window.onmousedown = function (event) {
         if (event.target === modal) {
             handleModalClose();
         }
@@ -286,7 +287,7 @@ function fetchData(endpoint, callback) {
 
 // 显示 update.php、check.php 执行结果
 function showExecResult(fileName, callback, fullSize = true) {
-    
+
     showMessageModal('');
     const messageContainer = document.getElementById('messageModalMessage');
 
@@ -385,13 +386,13 @@ function updateLogTable(logData) {
 // 更新 cron 日志内容
 function updateCronLogContent(logData) {
     var logContent = document.getElementById("cronLogContent");
-    logContent.value = logData.map(log => 
+    logContent.value = logData.map(log =>
         `[${new Date(log.timestamp).toLocaleString('zh-CN', {
-            month: '2-digit', day: '2-digit', 
-            hour: '2-digit', minute: '2-digit', second: '2-digit', 
-            hour12: false 
+            month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
         })}] ${log.log_message}`)
-    .join('\n');
+        .join('\n');
     logContent.scrollTop = logContent.scrollHeight;
 }
 
@@ -434,7 +435,7 @@ function updateChannelBindEPGList(channelBindEPGData) {
             <td contenteditable="true">${channelbindepg.channels}</td>
         `;
 
-        row.querySelector('td[contenteditable]').addEventListener('input', function() {
+        row.querySelector('td[contenteditable]').addEventListener('input', function () {
             channelbindepg.channels = this.textContent;
             document.getElementById('channelBindEPGTable').dataset.allChannelBindEPG = JSON.stringify(allChannelBindEPG);
             channelBindEPGInput.value = JSON.stringify(allChannelBindEPG);
@@ -475,7 +476,7 @@ function updateChannelMatchList(channelMatchdata) {
 // 显示限定频道列表
 function updateGenList(genData) {
     const gen_list_text = document.getElementById('gen_list_text');
-    if(!gen_list_text.value) {
+    if (!gen_list_text.value) {
         gen_list_text.value = genData.join('\n');
     }
 }
@@ -494,36 +495,36 @@ function displayPage(data, page) {
     }
 
     // 列索引和对应字段的映射
-    const columns = ['groupTitle', 'channelName', 'streamUrl', 'iconUrl', 'tvgId', 
-                    'tvgName', 'resolution', 'speed', 'disable', 'modified'];
+    const columns = ['groupTitle', 'channelName', 'streamUrl', 'iconUrl', 'tvgId',
+        'tvgName', 'resolution', 'speed', 'disable', 'modified'];
 
     // 填充当前页的表格数据
     data.slice(start, end).forEach((item, index) => {
         const row = document.createElement('tr');
-        
+
         row.innerHTML = `
             <td>${start + index + 1}</td>
             ${columns.map((col, columnIndex) => {
-                let cellContent = item[col] || '';
-                let cellClass = '';
-                
-                // 处理 disable 和 modified 列
-                if (col === 'disable' || col === 'modified') {
-                    cellContent = item[col] == 1 ? '是' : '否';
-                    cellClass = (col === 'disable' && item[col] == 1) 
-                        ? 'table-cell-disable' 
-                        : (col === 'modified' && item[col] == 1) 
-                        ? 'table-cell-modified' 
+            let cellContent = item[col] || '';
+            let cellClass = '';
+
+            // 处理 disable 和 modified 列
+            if (col === 'disable' || col === 'modified') {
+                cellContent = item[col] == 1 ? '是' : '否';
+                cellClass = (col === 'disable' && item[col] == 1)
+                    ? 'table-cell-disable'
+                    : (col === 'modified' && item[col] == 1)
+                        ? 'table-cell-modified'
                         : 'table-cell-clickable';
-                }
+            }
 
-                const editable = ['resolution', 'speed', 'disable', 'modified'].includes(col) ? '' : 'contenteditable="true"';
-                const clickableClass = (col === 'disable' || col === 'modified') ? 'table-cell-clickable' : '';
+            const editable = ['resolution', 'speed', 'disable', 'modified'].includes(col) ? '' : 'contenteditable="true"';
+            const clickableClass = (col === 'disable' || col === 'modified') ? 'table-cell-clickable' : '';
 
-                return `<td ${editable} class="${clickableClass} ${cellClass}">
+            return `<td ${editable} class="${clickableClass} ${cellClass}">
                             ${cellContent}
                         </td>`;
-            }).join('')}
+        }).join('')}
         `;
 
         // 为每个单元格添加事件监听器
@@ -532,7 +533,7 @@ function displayPage(data, page) {
                 const dataIndex = (currentPage - 1) * rowsPerPage + index;
                 if (dataIndex < allLiveData.length) {
                     allLiveData[dataIndex][columns[columnIndex]] = cell.textContent.trim();
-                    
+
                     allLiveData[dataIndex]['modified'] = 1; // 标记修改位
                     const lastCell = cell.closest('tr').lastElementChild;
                     lastCell.textContent = '是';
@@ -564,7 +565,7 @@ function displayPage(data, page) {
                 }
             });
         });
-    
+
         tableBody.appendChild(row);
     });
 }
@@ -633,7 +634,7 @@ function updateLiveSourceModal(data) {
 }
 
 // 上传直播源文件
-document.getElementById('liveSourceFile').addEventListener('change', function() {
+document.getElementById('liveSourceFile').addEventListener('change', function () {
     const file = this.files[0];
     const allowedExtensions = ['m3u', 'txt'];
     const fileExtension = file.name.split('.').pop().toLowerCase();
@@ -668,7 +669,7 @@ function toggleStatus(toggleBtn) {
         .then(response => response.json())
         .then(data => {
             // 更新按钮显示
-            document.getElementById(toggleBtn).innerHTML = 
+            document.getElementById(toggleBtn).innerHTML =
                 `${toggleBtn === "toggleLiveSourceSyncBtn" ? "同步更新" : "频道更名"}: ${data.status === 1 ? "是" : "否"}`;
             const syncStatus = document.getElementById("toggleLiveSourceSyncBtn").innerHTML;
             const processStatus = document.getElementById("toggleLiveChannelNameProcessBtn").innerHTML;
@@ -693,9 +694,9 @@ function saveLiveSourceFile() {
             content: sourceContent
         })
     })
-    .catch(error => {
-        showMessageModal('保存失败: ' + error);
-    });
+        .catch(error => {
+            showMessageModal('保存失败: ' + error);
+        });
 }
 
 document.getElementById('sourceUrlTextarea').addEventListener('blur', saveLiveSourceFile);
@@ -733,17 +734,17 @@ function saveLiveSourceInfo(popup = true, filePath = '') {
             content: JSON.stringify(allLiveData)
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (popup) {
-            showMessageModal(data.success ? '保存成功<br>已生成 M3U 及 TXT 文件' : '保存失败');
-        }
-    })
-    .catch(error => {
-        if (popup) {
-            showMessageModal('保存过程中出现错误: ' + error);
-        }
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (popup) {
+                showMessageModal(data.success ? '保存成功<br>已生成 M3U 及 TXT 文件' : '保存失败');
+            }
+        })
+        .catch(error => {
+            if (popup) {
+                showMessageModal('保存过程中出现错误: ' + error);
+            }
+        });
 }
 
 // 直播源信息另存为新文件
@@ -761,7 +762,7 @@ function saveLiveSourceInfoAs() {
     document.getElementById('confirmBtn').onclick = function () {
         fileName = document.getElementById('fileName').value;
         saveLiveSourceInfo(popup = false, fileName);
-    
+
         // 检查并添加 fileName 到文本框
         let t = document.getElementById('sourceUrlTextarea');
         if (!t.value.split('\n').some(line => line.replace(/[#\s]/g, '').trim() === fileName)) {
@@ -816,17 +817,17 @@ function checkSource() {
 // 清理未使用的直播源文件
 function cleanUnusedSource() {
     fetch('manage.php?delete_unused_live_data=true')
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessageModal(data.message);
-        } else {
-            showMessageModal('清理失败');
-        }
-    })
-    .catch(error => {
-        showMessageModal('Error: ' + error);
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessageModal(data.message);
+            } else {
+                showMessageModal('清理失败');
+            }
+        })
+        .catch(error => {
+            showMessageModal('Error: ' + error);
+        });
 }
 
 // 显示直播源地址
@@ -875,18 +876,18 @@ function saveLiveTemplate() {
             content: liveTemplateContent
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            parseSourceInfo("保存成功<br>正在重新解析...");
-            document.getElementById('liveTemplateModal').style.display = 'none';
-        } else {
-            showMessageModal('保存失败');
-        }
-    })
-    .catch(error => {
-        showMessageModal('保存失败: ' + error);
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                parseSourceInfo("保存成功<br>正在重新解析...");
+                document.getElementById('liveTemplateModal').style.display = 'none';
+            } else {
+                showMessageModal('保存失败');
+            }
+        })
+        .catch(error => {
+            showMessageModal('保存失败: ' + error);
+        });
 }
 
 // 搜索频道
@@ -911,7 +912,7 @@ function filterChannels(type) {
                 <button onclick="document.getElementById('icon_new_${itemIndex}').click()" style="font-size: 14px; width: 50px;">上传</button>
             </td>
         `;
-        
+
         // 动态更新 allData
         row.querySelectorAll('td[contenteditable]').forEach(cell => {
             cell.addEventListener('input', () => {
@@ -951,7 +952,7 @@ function filterChannels(type) {
                                     onclick="showModal('epg', true, { channel: '${item.original}', date: '${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })}' })">
                                     ${item.original} </td>
                                 <td contenteditable="true">${item.mapped || ''}</td>`;
-                row.querySelector('td[contenteditable]').addEventListener('input', function() {
+                row.querySelector('td[contenteditable]').addEventListener('input', function () {
                     item.mapped = this.textContent.trim();
                     document.getElementById(tableId).dataset[dataAttr] = JSON.stringify(allData);
                 });
@@ -966,7 +967,7 @@ function filterChannels(type) {
                     </td>
                 `;
                 row.querySelectorAll('td[contenteditable]').forEach((cell, idx) => {
-                    cell.addEventListener('input', function() {
+                    cell.addEventListener('input', function () {
                         if (idx === 0) item.channel = this.textContent.trim();  // 第一个可编辑单元格更新 channel
                         else item.icon = this.textContent.trim();  // 第二个可编辑单元格更新 icon
                         document.getElementById(tableId).dataset[dataAttr] = JSON.stringify(allData);
@@ -1093,17 +1094,17 @@ function uploadAllIcons() {
 // 清理未使用的台标文件
 function deleteUnusedIcons() {
     fetch('manage.php?delete_unused_icons=true')
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessageModal(data.message);
-        } else {
-            showMessageModal('清理失败');
-        }
-    })
-    .catch(error => {
-        showMessageModal('Error: ' + error);
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessageModal(data.message);
+            } else {
+                showMessageModal('清理失败');
+            }
+        })
+        .catch(error => {
+            showMessageModal('Error: ' + error);
+        });
 }
 
 // 更新频道别名
@@ -1131,7 +1132,7 @@ async function parseSource() {
     const channels = new Set();
 
     // 拆分输入的内容，可能包含多个 URL 或文本
-    if(!text.includes('#EXTM3U')) {
+    if (!text.includes('#EXTM3U')) {
         let lines = text.split('\n').map(line => line.trim());
         let urls = lines.filter(line => line.startsWith('http'));
 
@@ -1142,7 +1143,7 @@ async function parseSource() {
                 try {
                     const response = await fetch('manage.php?download_data=true&url=' + encodeURIComponent(url));
                     const result = await response.json(); // 解析 JSON 响应
-                    
+
                     if (result.success && !/not found/i.test(result.data)) {
                         text += '\n' + result.data;
                     } else {
@@ -1172,7 +1173,7 @@ async function parseSource() {
 
     // 将解析后的频道列表放回文本区域
     textarea.value = Array.from(channels).join('\n');
-    
+
     // 保存限定频道列表到数据库
     setGenList();
 }
@@ -1182,16 +1183,16 @@ function parseSourceInfo(message = '') {
     showMessageModal(message || "在线源解析较慢<br>请耐心等待...");
 
     fetch(`manage.php?parse_source_info=true`)
-    .then(response => response.json())
-    .then(data => {
-        showModal('live');
-        if (data.success == 'full') {
-            showMessageModal('解析成功<br>已生成 M3U 及 TXT 文件');
-        } else if (data.success == 'part') {
-            showMessageModal('已生成 M3U 及 TXT 文件<br>部分源异常<br>' + data.message);
-        }
-    })
-    .catch(error => showMessageModal('解析过程中发生错误：' + error));
+        .then(response => response.json())
+        .then(data => {
+            showModal('live');
+            if (data.success == 'full') {
+                showMessageModal('解析成功<br>已生成 M3U 及 TXT 文件');
+            } else if (data.success == 'part') {
+                showMessageModal('已生成 M3U 及 TXT 文件<br>部分源异常<br>' + data.message);
+            }
+        })
+        .catch(error => showMessageModal('解析过程中发生错误：' + error));
 }
 
 // 保存限定频道列表
@@ -1235,21 +1236,21 @@ function updateIconListJsonFile(notify = false) {
                 updatedIcons: JSON.stringify(allIcons) // 传递更新后的图标数据
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && notify) {
-                showModal('icon');
-                showMessageModal('保存成功');
-            } else if (data.success == false) {
-                showMessageModal(data.message);
-            }
-        })
-        .catch(error => showMessageModal('更新过程中发生错误：' + error));
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && notify) {
+                    showModal('icon');
+                    showMessageModal('保存成功');
+                } else if (data.success == false) {
+                    showMessageModal(data.message);
+                }
+            })
+            .catch(error => showMessageModal('更新过程中发生错误：' + error));
     }
 }
 
 // 导入配置
-document.getElementById('importFile').addEventListener('change', function() {
+document.getElementById('importFile').addEventListener('change', function () {
     const file = this.files[0];
     const fileExtension = file.name.split('.').pop().toLowerCase();
 
@@ -1263,17 +1264,17 @@ document.getElementById('importFile').addEventListener('change', function() {
     const formData = new FormData(document.getElementById('importForm'));
 
     fetch('manage.php', { method: 'POST', body: formData })
-    .then(response => response.json())
-    .then(data => {
-        showMessageModal(data.message);
-        if (data.success) {
-            // 延迟刷新页面
-            setTimeout(() => {
-                window.location.href = 'manage.php';
-            }, 3000);
-        }
-    })
-    .catch(error => showMessageModal('导入过程中发生错误：' + error));
+        .then(response => response.json())
+        .then(data => {
+            showMessageModal(data.message);
+            if (data.success) {
+                // 延迟刷新页面
+                setTimeout(() => {
+                    window.location.href = 'manage.php';
+                }, 3000);
+            }
+        })
+        .catch(error => showMessageModal('导入过程中发生错误：' + error));
 
     this.value = ''; // 重置文件输入框的值，确保可以连续上传相同文件
 });
@@ -1304,22 +1305,22 @@ function updateTokenUA(type) {
             [type.toLowerCase()]: newTokenUA
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (type.toLowerCase() == 'token' || newTokenUA == '') {
-                alert('修改成功');
-                window.location.href = 'manage.php';
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (type.toLowerCase() == 'token' || newTokenUA == '') {
+                    alert('修改成功');
+                    window.location.href = 'manage.php';
+                }
+                else {
+                    showMessageModal('修改成功');
+                    document.getElementById('change_ua_span').setAttribute('onclick', `changeTokenUA('user_agent', '${newTokenUA}')`);
+                }
+            } else {
+                showMessageModal('修改失败');
             }
-            else {
-                showMessageModal('修改成功');
-                document.getElementById('change_ua_span').setAttribute('onclick', `changeTokenUA('user_agent', '${newTokenUA}')`);
-            }
-        } else {
-            showMessageModal('修改失败');
-        }
-    })
-    .catch(error => showMessageModal('保存过程中出现错误: ' + error));
+        })
+        .catch(error => showMessageModal('保存过程中出现错误: ' + error));
 }
 
 // token_range 更变后进行提示
@@ -1342,11 +1343,11 @@ function showTokenRangeMessage(token, serverUrl) {
 }
 
 // 切换主题
-document.getElementById('themeSwitcher').addEventListener('click', function() {
+document.getElementById('themeSwitcher').addEventListener('click', function () {
     // 获取当前主题，并切换到下一个主题
     const currentTheme = localStorage.getItem('theme');
     const newTheme = currentTheme === 'light' ? 'dark' : (currentTheme === 'dark' ? '' : 'light');
-    
+
     // 更新主题
     document.body.classList.add('theme-transition');
     document.body.classList.remove('dark', 'light');
@@ -1363,14 +1364,14 @@ document.getElementById('themeSwitcher').addEventListener('click', function() {
     const labelText = document.querySelector('.label-text');
     themeIcon.className = `fas ${newTheme === 'dark' ? 'fa-moon' : newTheme === 'light' ? 'fa-sun' : 'fa-adjust'}`;
     labelText.textContent = newTheme === 'dark' ? 'Dark' : newTheme === 'light' ? 'Light' : 'Auto';
-    
+
     // 保存到本地存储
     localStorage.setItem('theme', newTheme);
 });
 
 // 监听系统主题变化
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-    if(!localStorage.getItem('theme')) {
+    if (!localStorage.getItem('theme')) {
         const theme = e.matches ? 'dark' : 'light';
         document.body.classList.remove('dark', 'light');
         document.body.classList.add(theme);
