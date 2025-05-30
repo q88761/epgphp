@@ -1,3 +1,5 @@
+> Language: [English](README.md)   [简体中文](README_zh-CN.md) 
+
 > [!IMPORTANT]  
 > The documentation for this project is still under preparation and is not yet complete.
 > 
@@ -6,11 +8,15 @@
 > [!WARNING]  
 > Redis has been added and stability is being **tested**.
 
+[![GitHub License](https://img.shields.io/github/license/mxdabc/epgphp)
+](https://www.gnu.org/licenses/gpl-2.0)![Static Badge](https://img.shields.io/badge/redis-Optional-red) ![GitHub repo size](https://img.shields.io/github/repo-size/mxdabc/epgphp)
+ ![Static Badge](https://img.shields.io/badge/php-%3E%3D7.2-blue)
+ ![GitHub Repo stars](https://img.shields.io/github/stars/mxdabc/epgphp) 
+
+
 ![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%20version%20of%20the%20EPG%20service%2C%20more%20lightweight.&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto)
 
 # 📺 Lightweight PHP EPG Service
-
-> Language: [English](README.md)   [简体中文](README_zh-CN.md) 
 
 Welcome to the **Lightweight PHP EPG Service**! 🎉 This project is a simple yet efficient Electronic Program Guide (EPG) service built with PHP. It is particularly suitable for EPG implementation in low-configuration servers, without Docker, and in scenarios requiring high concurrency.
 
@@ -21,7 +27,7 @@ Welcome to the **Lightweight PHP EPG Service**! 🎉 This project is a simple ye
 - **Flexible**: Easily customizable to suit your needs.
 - **No Dependencies**: Pure PHP with no external dependencies.
 
-## 🛠️ Installation
+## 🛠️ Installation (Don't follow this step)
 
 1. **Clone the repository**:
    ```bash
@@ -58,7 +64,7 @@ Contributions are welcome! Feel free to submit issues, feature requests, or pull
 
 ## 📝 License
 
-Original work: https://github.com/TakcC/PHP-EPG-Docker-Server
+Forked from: https://github.com/TakcC/PHP-EPG-Docker-Server
 
 This repository is my own modified version, which is more suitable for use in scenarios without Docker and requiring high concurrency.
 
