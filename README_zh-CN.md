@@ -7,9 +7,7 @@
 > Redis 被添加，**请自行评估稳定性**，官网服务已开始使用 Redis.
 
 [![GitHub License](https://img.shields.io/github/license/mxdabc/epgphp)
-](https://www.gnu.org/licenses/gpl-2.0)![Static Badge](https://img.shields.io/badge/redis-可选-red) ![GitHub repo size](https://img.shields.io/github/repo-size/mxdabc/epgphp)
- ![Static Badge](https://img.shields.io/badge/php-%3E%3D7.2-blue)
- ![GitHub Repo stars](https://img.shields.io/github/stars/mxdabc/epgphp) 
+](https://www.gnu.org/licenses/gpl-2.0) ![Static Badge](https://img.shields.io/badge/redis-可选-red) ![GitHub repo size](https://img.shields.io/github/repo-size/mxdabc/epgphp) ![Static Badge](https://img.shields.io/badge/php-%3E%3D7.2-blue) ![GitHub Repo stars](https://img.shields.io/github/stars/mxdabc/epgphp) 
 
 ![Intro](https://socialify.git.ci/mxdabc/epgphp/image?description=1&descriptionEditable=PHP%E7%89%88%E7%9A%84EPG%E6%9C%8D%E5%8A%A1%EF%BC%8C%E6%9B%B4%E8%BD%BB%E9%87%8F%E3%80%82%20&font=Jost&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Auto)
 
